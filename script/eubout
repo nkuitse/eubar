@@ -3,12 +3,12 @@
 use strict;
 use warnings;
 
-use Archive::Bakbar;
+use Archive::Eubar;
 
 usage() if @ARGV < 1;
 
 my $base = shift;
-my $ar = Archive::Bakbar->new($base);
+my $ar = Archive::Eubar->new($base);
 
 if (@ARGV && $ARGV[0] =~ /^[@](\d+)$/) {
     die "Fast-forwarding not yet implemented";

@@ -3,11 +3,11 @@
 use strict;
 use warnings;
 
-use Archive::Bakbar;
+use Archive::Eubar;
 use File::Stat::Bits;
 
 usage() if !@ARGV;
-my $ar = Archive::Bakbar->new(shift);
+my $ar = Archive::Eubar->new(shift);
 
 while (defined(my $path = <STDIN>)) {
     next if $path !~ s{[^/]*(?=/)}{};

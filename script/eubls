@@ -3,9 +3,9 @@
 use strict;
 use warnings;
 
-use Archive::Bakbar;
+use Archive::Eubar;
 
 usage() if !@ARGV;
-my $ar = Archive::Bakbar->new(shift);
+my $ar = Archive::Eubar->new(shift);
 
 print $_, "\n" for $ar->files;
