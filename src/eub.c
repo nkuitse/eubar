@@ -123,20 +123,23 @@ eub_write_meta(struct eub *eub, struct eubfile *file) {
     }
     len = fprintf(eub->ometa, "%s\n", eub->metabuf);
     if (!len)
-        return(eub_err(eub, errno, "Can't write metadata for %s", file->path));
+        return(eub_err(eub, errno, "Can't write metadata: %s", file->path));
     if (eub->ometa == eub->odata)
-        eub->pos += len;
+        eub->curpos += len;
     return(0);
 }
 
 int
 eub_write_meta_header(struct eub *eub) {
     eub->err = errno = 0;
-    if (!fwrite(META_MAGIC, META_MAGIC_LEN, 1, eub->ometa))
-        return(eub_err(eub, errno, "Can't write data header"));
+    if (!fwrite(EUB_MAGIC_META, EUB_MAGIC_LEN, 1, eub->ometa))
+        return(eub_err(eub, errno, "Can't write meta header"));
+    if (eub->id && !fprintf(eub->ometa, "$id %s\n", eub->id))
+        return(eub_err(eub, errno, "Can't write meta header"));
     if (!eub->begin)
         eub->begin = time(NULL);
-    fprintf(stderr, "$begin %lld\n", eub->begin);
+    if (!fprintf(eub->ometa, "$begin %lld\n", eub->begin))
+        return(eub_err(eub, errno, "Can't write meta header"));
     if (eub->hashlen)
         fprintf(stderr, "$hash BLAKE2b/%d\n", eub->hashlen * 8);
     return(0);
@@ -145,28 +148,28 @@ eub_write_meta_header(struct eub *eub) {
 int
 eub_write_data_header(struct eub *eub) {
     eub->err = errno = 0;
-    if (!fwrite(DATA_MAGIC, DATA_MAGIC_LEN, 1, eub->odata))
+    if (!fwrite(EUB_MAGIC_DATA, EUB_MAGIC_LEN, 1, eub->odata))
         return(eub_err(eub, errno, "Can't write data header"));
-    eub->pos += DATA_MAGIC_LEN;
+    eub->curpos += EUB_MAGIC_LEN;
     return(0);
 }
 
 int
 eub_write_data(struct eub *eub, struct eubfile *file) {
     unsigned long long pos, size;
-    char *hash, *path, *mp, *iobuf, *linkbuf, t;
+    char *hash, *path, *mp, *copybuf, *linkbuf, t;
     size_t hashlen, pathlen;
     ssize_t m, n;
     blake2b_state b2state;
 
-    pos = file->pos = eub->pos;
+    pos = file->pos = eub->curpos;
     size = n = file->size;
     t = file->typechar;
     path = file->path;
     hash = &file->hash[0];
     hashlen = eub->hashlen;
     pathlen = strlen(path);
-    iobuf = &eub->iobuf[0];
+    copybuf = &eub->copybuf[0];
     linkbuf = &eub->linkbuf[0];
     eub->err = errno = 0;
     mp = eub->metabuf;
@@ -176,14 +179,14 @@ eub_write_data(struct eub *eub, struct eubfile *file) {
             return(eub_err(eub, errno, "Can't open %s", path));
         if (hashlen && blake2b_init(&b2state, hashlen) < 0)
             exit(eub_err(eub, errno, "Can't initialize hash"));
-        for(; (m = (n < IO_BUF_LEN) ? n : IO_BUF_LEN); n -= m) {
-            if (!fread(iobuf, m, 1, fp)) {
+        for(; (m = (n < COPY_BUF_LEN) ? n : COPY_BUF_LEN); n -= m) {
+            if (!fread(copybuf, m, 1, fp)) {
                 (void) fclose(fp);
                 return(eub_err(eub, errno, "Can't read from %s", path));
             }
-            if (hashlen && blake2b_update(&b2state, iobuf, m) < 0)
+            if (hashlen && blake2b_update(&b2state, copybuf, m) < 0)
                 exit(eub_err(eub, errno, "Can't initialize hash"));
-            if (!fwrite(iobuf, m, 1, eub->odata))
+            if (!fwrite(copybuf, m, 1, eub->odata))
                 exit(eub_err(eub, errno, "Can't write file %s", path));
         }
         (void) fclose(fp);
@@ -199,11 +202,11 @@ eub_write_data(struct eub *eub, struct eubfile *file) {
     }
     else if (t == 'l') {
         if ((size = readlink(path, linkbuf, LINK_BUF_LEN)) < 1)
-            return eub_err(eub, errno, "Can't read link %s", path);
+            return eub_err(eub, errno, "Can't read link: %s", path);
         file->size = size;
         mp += sprintf(mp, "@%lld *%lld", pos, size);
         if (!fwrite(linkbuf, size, 1, eub->odata))
-            return eub_err(eub, errno, "Can't write link %s", path);
+            return eub_err(eub, errno, "Can't write link: %s", path);
     }
     else {
         return(0);
@@ -214,16 +217,20 @@ eub_write_data(struct eub *eub, struct eubfile *file) {
     mp += pathlen;
     *mp++ = '\n';
     file->metalen = mp - eub->metabuf;
-    eub->pos += size;
+    eub->curpos += size;
     if (!fwrite(eub->metabuf, file->metalen, 1, eub->ometa))
-        return(eub_err(eub, errno, "Can't write meta %s", path));
+        return(eub_err(eub, errno, "Can't write meta: %s", path));
     if (eub->ometa == eub->odata)
-        eub->pos += file->metalen;
+        eub->curpos += file->metalen;
     return 0;
 }
 
 int
 eub_write_meta_footer(struct eub *eub) {
+    if (!fprintf(eub->ometa, "$end %lld\n", time(NULL)))
+        return(eub_err(eub, errno, "Can't write meta footer"));
+    if (!fwrite("\n", 1, 1, eub->ometa))
+        return(eub_err(eub, errno, "Can't write meta footer"));
 }
 
 int

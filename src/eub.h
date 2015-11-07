@@ -1,21 +1,18 @@
-#define DATA_MAGIC "#eub01t0f0k0v0\n"
-#define META_MAGIC "#eubar 01 meta\n"
+#define EUB_MAGIC_DATA "#eubar data 1.0\n"
+#define EUB_MAGIC_META "#eubar meta 1.0\n"
+#define EUB_MAGIC_BOTH "#eubar arch 1.0\n"
+#define EUB_MAGIC_LEN 16
 
-#define DATA_MAGIC_LEN  16
-#define META_MAGIC_LEN  16
-
-#define IO_BUF_LEN      8192
-#define META_BUF_LEN    (PATH_MAX*2)
-#define PATH_BUF_LEN    PATH_MAX
-#define LINK_BUF_LEN    PATH_MAX
-
-#define BLAKE2B_ALGO    1
+#define PATH_BUF_LEN (PATH_MAX+1)
+#define LINK_BUF_LEN (PATH_MAX+1)
+#define META_BUF_LEN (PATH_MAX*2+1)
+#define COPY_BUF_LEN 8192
 
 struct eub {
-    char pathbuf[PATH_MAX];
-    char linkbuf[PATH_MAX];
-    char iobuf[IO_BUF_LEN];
+    char pathbuf[PATH_BUF_LEN];
+    char linkbuf[LINK_BUF_LEN];
     char metabuf[META_BUF_LEN];
+    char copybuf[COPY_BUF_LEN];
 
     FILE *ipath;
     FILE *imeta;
@@ -24,25 +21,28 @@ struct eub {
 
     char *errpfx;
     int err;
-    unsigned long long pos;
+    unsigned long long curpos;
 
     size_t hashlen;
     char b2sum[64];
     blake2b_state b2state;
 
+    /* Metadata for the archive itself */
+    char *id;
     unsigned long long begin;
+    unsigned long long end;
 };
 
 struct eubfile {
-    char   *path;
-    unsigned long long pos;
-    unsigned long long size;
-    size_t metalen;
-    size_t hashlen;
-    char   hash[64];
     char   action;
     char   typechar;
+    size_t metalen;
+    unsigned long long pos;
+    unsigned long long size;
     struct stat stat;
+    size_t hashlen;
+    char   hash[64];
+    char   *path;
 };
 
 int eub_init(struct eub *eub);
