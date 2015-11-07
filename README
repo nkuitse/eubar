@@ -1,0 +1,3 @@
+eubar et al. are a suite of simple tools for archiving files, with file
+contents (by default) stored in one file and file metadata (including
+references to their contents) in another.
