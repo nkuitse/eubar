@@ -27,6 +27,7 @@ create_from_paths(struct eub *eub, struct eubfile *file) {
         MUST(eub_write_meta(eub, file), eub->err);
         MUST(eub_write_data(eub, file), eub->err);
     }
+    MUST(eub_write_meta_footer(eub), eub->err);
 }
 
 void
@@ -38,6 +39,7 @@ create_from_meta(struct eub *eub, struct eubfile *file) {
         MUST(eub_write_meta(eub, file), eub->err);
         MUST(eub_write_data(eub, file), eub->err);
     }
+    MUST(eub_write_meta_footer(eub), eub->err);
 }
 
 int
@@ -52,6 +54,7 @@ main(int argc, char **argv) {
     ARGBEGIN {
         case 'p' : opt_p = 1; break;
         case '1' : opt_1 = 1; break;
+        case 'k' : eub.id = EARGF(usage()); break;
         case 'h' : opt_h = atoi(EARGF(usage()));
                    if (opt_h < 1 || opt_h > 64)
                        usage();
