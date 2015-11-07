@@ -1,0 +1,103 @@
+.TH BAKBAR 1 eubar\-VERSION
+.
+.SH NAME
+.
+eubar \- backup archiver
+.
+.SH SYNOPSIS
+.
+\fBeubar\fR [ \fB\-p\fR ] [ \fB\-h \fIHASHLEN\fR ] [ \fIARCHIVE\fR ]
+.
+.SH DESCRIPTION
+.
+eubar creates archives for backup or other purposes.
+eubar reads a list of files to archive from standard input.
+It prints symlink and regular file contents (`data') to standard output,
+and metadata to standard error.
+.
+.SH OPTIONS
+.
+.TP
+\fB\-h\fI NUMBYTES\fR
+Include BLAKE2b hashes of length \fINUMBYTES\fR
+in the metadata output.
+\fINUMBYTES\fR should be in the range 8-64.
+.
+.SH FILES
+.
+.P
+eubar has no configuration files.
+.
+.SH METADATA FORMAT
+.
+Metadata for each file (including directories, special files, etc.) is written
+as a newline-terminated string of space-separated fields.
+
+The first byte in each field indicates what data is stored in the field.
+
+The first field is special; it indicates the file's status and file type.
+
+A file to add to the archive has status \fB+\fR and a file to delete from the archive has status \fB-\fR.
+
+The last field is always the file's path, beginning with a slash and with any
+newlines (ASCII 0x0a) and backslashes (ASCII 0x5c) escaped as `\\n' and `\\\\',
+respectively.
+.P
+The remaining fields may occur in any order.
+.
+.P
+The remaining fields are taken from the output of
+.BR stat (2):
+.
+.TP
+.B d
+st_dev (decimal)
+.TP
+.B r
+st_rdev (decimal)
+.TP
+.B i
+st_ino (decimal)
+.TP
+.B p
+st_mode & ~S_IFMT (octal, no leading zeroes added)
+.TP
+.B u
+st_uid (decimal)
+.TP
+.B g
+st_gid (decimal)
+.TP
+.B m
+st_mtime (decimal seconds since the Unix epoch)
+.TP
+.B c
+st_ctime (decimal seconds since the Unix epoch)
+.
+.P
+Regular files and symlinks have an additional line that specified the offset
+and length of the file's contents (or of the link's value) within the data
+file; for regular files, the hash value of the file's contents may also be included:
+.TP
+.B @
+offset (decimal)
+.TP
+.B *
+length (decimal)
+.B #
+hash (hex nybbles)
+.TP
+.P
+An empty line indicates the end of metadata.
+This may be used to store metadata and data in the same file,
+though this is not supported by eubar.
+.
+.SH DATA FORMAT
+.
+The first sixteen bytes in a \fBeubar\fR data file have the value
+\fB#eub01t0f0k0v0\\n\fR.
+The remainder consists of the contents of the archived files, without padding
+or separators of any kind.
+.
+.SH SEE ALSO
+.BR tar (1)

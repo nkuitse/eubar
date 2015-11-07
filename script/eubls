@@ -1,0 +1,11 @@
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+
+use Archive::Bakbar;
+
+usage() if !@ARGV;
+my $ar = Archive::Bakbar->new(shift);
+
+print $_, "\n" for $ar->files;

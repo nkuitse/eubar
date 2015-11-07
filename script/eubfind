@@ -1,0 +1,21 @@
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+
+use IPC::Run3 qw(run3);
+
+my @eub = qw(eubar);
+
+open my $fhin,  '-|', qw(find), @ARGV or die;
+open my $fhtee, '|-', qw(cat -n)      or die;
+open my $fhout, '|-', qw(hexdump -C)  or die;
+
+#    COMMAND  STDIN   STDOUT  STDERR
+#    |        |       |       |
+run3 \@eub,  $fhin,  $fhout, sub {
+    print STDERR $_;
+    print $fhtee $_;
+};
+close $fhin  or die;
+close $fhtee or die;

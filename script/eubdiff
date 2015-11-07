@@ -1,0 +1,62 @@
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+
+use Archive::Bakbar;
+use File::Stat::Bits;
+
+usage() if !@ARGV;
+my $ar = Archive::Bakbar->new(shift);
+
+while (defined(my $path = <STDIN>)) {
+    next if $path !~ s{[^/]*(?=/)}{};
+    chomp $path;
+    my $arf = $ar->find($path);
+    my @stat = lstat $path;
+    if (!defined $arf) {
+        # It's a new file
+        next if !@stat;
+        print '+', stat2file($path, @stat)->meta, "\n";
+    }
+    elsif (!@stat) {
+        # File has been deleted or moved
+        print '-', $arf->type, ' ', $arf->path, "\n";
+    }
+    else {
+        # File may have been changed
+        my $fsf = stat2file($path, @stat);
+        if ((my $fsmeta = $fsf->meta) ne $arf->meta) {
+            print '+', $fsmeta, "\n";
+        }
+    }
+}
+
+sub stat2file {
+    my $path = shift;
+    my $mode = $_[2];
+    my $type = S_ISREG($mode)  ? 'f' :
+               S_ISDIR($mode)  ? 'd' :
+               S_ISLNK($mode)  ? 'l' :
+               S_ISBLK($mode)  ? 'b' :
+               S_ISCHR($mode)  ? 'c' :
+               S_ISFIFO($mode) ? 'p' :
+               S_ISSOCK($mode) ? 's' : '?';
+    my %f = (
+        'a' => '+',
+        't' => $type,
+        '/' => $path,
+        'd' => $_[0],
+        'i' => $_[1],
+        'p' => $mode & ~S_IFMT,
+        'u' => $_[4],
+        'g' => $_[5],
+        'r' => $_[6],
+        'm' => $_[9],
+        'c' => $_[10],
+    );
+    if ($type eq 'f' || $type eq 'l') {
+        $f{'*'} = $_[7];
+    }
+    $ar->file(%f);
+}

@@ -1,0 +1,24 @@
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+
+use Archive::Bakbar;
+
+usage() if @ARGV < 1;
+
+my $base = shift;
+my $ar = Archive::Bakbar->new($base);
+
+if (@ARGV && $ARGV[0] =~ /^[@](\d+)$/) {
+    die "Fast-forwarding not yet implemented";
+}
+
+foreach (@ARGV) {
+    my $file = $ar->find($_) or next;
+    print(STDERR "Not a plain file: $_\n"), next
+        if $file->type ne 'f';
+    $ar->extract($file, \*STDOUT)
+        or die "Can't extract ", $file->path;
+}
+
