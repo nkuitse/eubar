@@ -5,6 +5,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <string.h>
+#include <errno.h>
 #include <blake2.h>
 #include "eub.h"
 #include "arg.h"
@@ -46,15 +47,20 @@ int
 main(int argc, char **argv) {
     struct eub eub;
     struct eubfile file;
-    int opt_p = 0, opt_1 = 0;
+    int opt_m = 0;
     size_t opt_h = 0;
 
     if (eub_init(&eub) != 0)
         eub_die(&eub, "init failed\n");
     ARGBEGIN {
-        case 'p' : opt_p = 1; break;
-        case '1' : opt_1 = 1; break;
-        case 'k' : eub.id = EARGF(usage()); break;
+        case 'm' : opt_m = 1;
+                   break;
+        case '1' : eub.onefile = 1;
+                   break;
+        case 'k' : eub.id = EARGF(usage());
+                   break;
+        case 't' : eub.begin = strtoull(EARGF(usage()), NULL, 10);
+                   break;
         case 'h' : opt_h = atoi(EARGF(usage()));
                    if (opt_h < 1 || opt_h > 64)
                        usage();
@@ -64,28 +70,24 @@ main(int argc, char **argv) {
                    break;
         default  : usage();
     } ARGEND;
+    eub.ipath = stdin;
     if (argc == 1) {
-        char path[PATH_MAX];
-        if (opt_1)
-            usage();
-        usage(); /* XXX Not yet implemented */
+        MUST(eub_open(&eub, argv[0], "w"), eub.err);
     }
-    else if (opt_1) {
-        eub.ipath = stdin;
-        eub.odata = stdout;
-        eub.ometa = stdout;
+    else if (eub.onefile) {
+        eub.odata = eub.ometa = stdout;
     }
     else {
-        eub.ipath = stdin;
         eub.odata = stdout;
         eub.ometa = stderr;
     }
-    if (!opt_1)
+    if (!eub.onefile)
         MUST(eub_write_meta_header(&eub), eub.err);
     MUST(eub_write_data_header(&eub), eub.err);
-    if (opt_p)
-        create_from_paths(&eub, &file);
-    else
+    if (opt_m)
         create_from_meta(&eub, &file);
+    else
+        create_from_paths(&eub, &file);
     return(0);
 }
+
