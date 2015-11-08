@@ -10,13 +10,11 @@
 #include "eub.h"
 #include "arg.h"
 
-#define MUST(x,e) if ((x)!=0) { exit(e); }
-
 char *argv0;
 
 void
 usage(void) {
-    fputs("usage: eubar [-p] [-h HASHLEN] [BASE]\n", stderr);
+    fputs("usage: eubar [-m1] [-k ID] [-t SEC] [-h HASHLEN] [BASE]\n", stderr);
     exit(1);
 }
 
@@ -24,23 +22,24 @@ void
 create_from_paths(struct eub *eub, struct eubfile *file) {
     file->path = &eub->pathbuf[0];
     while (eub_read_path(eub, file)) {
-        MUST(eub_stat(eub, file), eub->err);
-        MUST(eub_write_meta(eub, file), eub->err);
-        MUST(eub_write_data(eub, file), eub->err);
+        if (eub_stat(eub, file) || eub_write_meta(eub, file) || eub_write_data(eub, file))
+            exit(eub->err);
     }
-    MUST(eub_write_meta_footer(eub), eub->err);
+    if (eub->err || eub_write_meta_footer(eub))
+        exit(eub->err);
 }
 
 void
 create_from_meta(struct eub *eub, struct eubfile *file) {
     file->path = &eub->pathbuf[0];
     while (eub_read_meta(eub, file)) {
-        file->metalen = strlen(eub->metabuf);
-        MUST(eub->err, eub->err);
-        MUST(eub_write_meta(eub, file), eub->err);
-        MUST(eub_write_data(eub, file), eub->err);
+        if (eub_write_meta(eub, file) || eub_write_data(eub, file))
+            exit(eub->err);
     }
-    MUST(eub_write_meta_footer(eub), eub->err);
+    if (eub->err)
+        exit(eub->err);
+    if (eub_write_meta_footer(eub))
+        exit(eub->err);
 }
 
 int
@@ -50,8 +49,7 @@ main(int argc, char **argv) {
     int opt_m = 0;
     size_t opt_h = 0;
 
-    if (eub_init(&eub) != 0)
-        eub_die(&eub, "init failed\n");
+    eub_init(&eub);
     ARGBEGIN {
         case 'm' : opt_m = 1;
                    break;
@@ -72,7 +70,8 @@ main(int argc, char **argv) {
     } ARGEND;
     eub.ipath = stdin;
     if (argc == 1) {
-        MUST(eub_open(&eub, argv[0], "w"), eub.err);
+        if (eub_open(&eub, argv[0], "w"))
+            exit(eub.err);
     }
     else if (eub.onefile) {
         eub.odata = eub.ometa = stdout;
@@ -81,9 +80,8 @@ main(int argc, char **argv) {
         eub.odata = stdout;
         eub.ometa = stderr;
     }
-    if (!eub.onefile)
-        MUST(eub_write_meta_header(&eub), eub.err);
-    MUST(eub_write_data_header(&eub), eub.err);
+    if (eub_write_header(&eub))
+        exit(eub.err);
     if (opt_m)
         create_from_meta(&eub, &file);
     else
