@@ -204,8 +204,11 @@ eub_write_meta_header(struct eub *eub) {
 
 int
 eub_write_data_header(struct eub *eub) {
+    char *magic;
+    
+    magic = eub->onefile ? EUB_MAGIC_BOTH : EUB_MAGIC_DATA;
     eub->err = errno = 0;
-    if (!fwrite(EUB_MAGIC_DATA, EUB_MAGIC_LEN, 1, eub->odata))
+    if (!fwrite(magic, EUB_MAGIC_LEN, 1, eub->odata))
         return(eub_err(eub, errno, "Can't write data header"));
     eub->curpos += EUB_MAGIC_LEN;
     return(0);
