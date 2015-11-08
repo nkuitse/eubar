@@ -13,10 +13,9 @@
 #include <blake2.h>
 #include "eub.h"
 
-int
+void
 eub_init(struct eub *eub) {
     bzero(eub, sizeof *eub);
-    return 0;
 }
 
 int
@@ -67,13 +66,13 @@ size_t
 eub_read_path(struct eub *eub, struct eubfile *file) {
     size_t len;
     if (!fgets(eub->pathbuf, PATH_BUF_LEN, eub->ipath))
-        return 0;
+        return(0);
     len = strlen(eub->pathbuf);
     if (eub->pathbuf[len-1] == '\n')
         eub->pathbuf[--len] = 0;
     file->path = eub->pathbuf;
     file->metalen = 0;
-    return len;
+    return(len);
 }
 
 size_t
@@ -97,20 +96,20 @@ eub_read_meta(struct eub *eub, struct eubfile *file) {
         return(len);
     }
     if (ferror(eub->ipath))
-        return eub_err(eub, errno, "Can't read metadata");
+        return(eub_err(eub, errno, "Can't read metadata"));
     else
-        return 0;
+        return(0);
 }
 
 int
 eub_stat(struct eub *eub, struct eubfile *file) {
     eub->err = errno = 0;
     if (lstat(file->path, &file->stat) < 0)
-        return eub_err(eub, errno, "Can't stat: %s", file->path);
+        return(eub_err(eub, errno, "Can't stat: %s", file->path));
     file->typechar = eub_util_mode2typechar(file->stat.st_mode);
     file->action = '+';
     file->size = file->stat.st_size;
-    return 0;
+    return(0);
 }
 
 size_t
@@ -137,7 +136,7 @@ eub_meta(struct eub *eub, struct eubfile *file) {
     *mp++ = file->typechar;
     mp += sprintf(mp, " d%ld i%ld r%ld p%o u%ld g%ld m%ld c%ld", dev, ino, rdev, perm, uid, gid, mtime, ctime);
     *mp++ = 0;
-    return mp - eub->metabuf - 1;
+    return(mp - eub->metabuf - 1);
 }
 
 int
@@ -173,6 +172,17 @@ eub_write_meta(struct eub *eub, struct eubfile *file) {
         return(eub_err(eub, errno, "Can't write metadata: %s", file->path));
     if (eub->onefile)
         eub->curpos += len;
+    return(0);
+}
+
+int
+eub_write_header(struct eub *eub) {
+    if (eub->ometa && !eub->onefile)
+        if (eub_write_meta_header(eub))
+            return(eub->err);
+    if (eub->odata)
+        if (eub_write_data_header(eub))
+            return(eub->err);
     return(0);
 }
 
@@ -249,11 +259,11 @@ eub_write_data(struct eub *eub, struct eubfile *file) {
     }
     else if (t == 'l') {
         if ((size = readlink(path, linkbuf, LINK_BUF_LEN)) < 1)
-            return eub_err(eub, errno, "Can't read link: %s", path);
+            return(eub_err(eub, errno, "Can't read link: %s", path));
         file->size = size;
         mp += sprintf(mp, "@%lld *%lld", pos, size);
         if (!fwrite(linkbuf, size, 1, eub->odata))
-            return eub_err(eub, errno, "Can't write link: %s", path);
+            return(eub_err(eub, errno, "Can't write link: %s", path));
     }
     else {
         return(0);
@@ -273,7 +283,7 @@ eub_write_data(struct eub *eub, struct eubfile *file) {
         return(eub_err(eub, errno, "Can't write meta: %s", path));
     if (eub->onefile)
         eub->curpos += file->metalen;
-    return 0;
+    return(0);
 }
 
 int
@@ -282,14 +292,16 @@ eub_write_tar(struct eub *eub) {
     while (eub_read_meta(eub, &file)) {
         ;
     }
+    return(eub->err);
 }
 
 int
 eub_write_meta_footer(struct eub *eub) {
-    if (!fprintf(eub->ometa, "$end %lld\n", (unsigned long long) time(NULL)))
+    if (!fprintf(eub->ometa, "$end %lld\n", (unsigned long long) time(NULL))
+            || !fprintf(eub->ometa, "$size %lld\n", eub->curpos)
+            || !fwrite("\n", 1, 1, eub->ometa))
         return(eub_err(eub, errno, "Can't write meta footer"));
-    if (!fwrite("\n", 1, 1, eub->ometa))
-        return(eub_err(eub, errno, "Can't write meta footer"));
+    return(0);
 }
 
 int
@@ -299,7 +311,7 @@ eub_err(struct eub *eub, int err, char *fmt, ...) {
     vfprintf(stderr, fmt, ap);
     va_end(ap);
     (void) fwrite("\n", 1, 1, stderr);
-    return eub->err = err;
+    return(eub->err = err);
 }
 
 void
@@ -314,13 +326,13 @@ eub_die(struct eub *eub, char *fmt, ...) {
 char
 eub_util_mode2typechar(mode_t mode) {
     switch (mode & S_IFMT) {
-    case S_IFREG:  return 'f';
-    case S_IFDIR:  return 'd';
-    case S_IFLNK:  return 'l';
-    case S_IFBLK:  return 'b';
-    case S_IFCHR:  return 'c';
-    case S_IFIFO:  return 'p';
-    case S_IFSOCK: return 's';
-    default:       return '?';
+    case S_IFREG:  return('f');
+    case S_IFDIR:  return('d');
+    case S_IFLNK:  return('l');
+    case S_IFBLK:  return('b');
+    case S_IFCHR:  return('c');
+    case S_IFIFO:  return('p');
+    case S_IFSOCK: return('s');
+    default:       return('?');
     }
 }
