@@ -8,6 +8,11 @@
 #define META_BUF_LEN (PATH_MAX*2+1)
 #define COPY_BUF_LEN 8192
 
+#define EUB_EXT_DATA ".eud"
+#define EUB_EXT_META ".eum"
+#define EUB_EXT_BOTH ".eub"
+#define EUB_EXT_LEN 4
+
 struct eub {
     char pathbuf[PATH_BUF_LEN];
     char linkbuf[LINK_BUF_LEN];
@@ -15,10 +20,12 @@ struct eub {
     char copybuf[COPY_BUF_LEN];
 
     FILE *ipath;
+    FILE *idata;
     FILE *imeta;
     FILE *odata;
     FILE *ometa;
 
+    int onefile;
     char *errpfx;
     int err;
     unsigned long long curpos;
@@ -46,6 +53,7 @@ struct eubfile {
 };
 
 int eub_init(struct eub *eub);
+int eub_open(struct eub *eub, char *path, char *mode);
 size_t eub_read_path(struct eub *eub, struct eubfile *file);
 size_t eub_read_meta(struct eub *eub, struct eubfile *file);
 int eub_write_meta(struct eub *eub, struct eubfile *file);
