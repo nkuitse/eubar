@@ -21,10 +21,11 @@ my $ar = Archive::Eubar->new(shift);
 if ($long) {
     foreach ($ar->files) {
         my $arf = $ar->find($_);
-        printf("%s %5d %5d %9d @%9d %s\n",
+        printf("%s %5d %5d %9d %9d %s\n",
             scalar format_mode($arf->mode),
             $arf->uid, $arf->gid,
-            $arf->size // 0, $arf->position // 0,
+            $arf->position // 0,
+            $arf->size // 0,
             $arf->path
         );
     }
