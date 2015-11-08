@@ -3,19 +3,23 @@
 use strict;
 use warnings;
 
-use IPC::Run3 qw(run3);
+use Archive::Eubar;
 
-my @eub = qw(eubar);
+usage() if @ARGV < 2;
 
-open my $fhin,  '-|', qw(find), @ARGV or die;
-open my $fhtee, '|-', qw(cat -n)      or die;
-open my $fhout, '|-', qw(hexdump -C)  or die;
+my $base = shift;
+my $ar = Archive::Eubar->new($base);
 
-#    COMMAND  STDIN   STDOUT  STDERR
-#    |        |       |       |
-run3 \@eub,  $fhin,  $fhout, sub {
-    print STDERR $_;
-    print $fhtee $_;
-};
-close $fhin  or die;
-close $fhtee or die;
+my $err = 1;
+foreach my $f (@ARGV) {
+    my $arf = $ar->find($f);
+    $err++, print(STDERR "Can't find: $f\n"), next if !$arf;
+    if ($arf->type =~ /^[fl]$/) {
+        printf "%9d %9d %s\n", $arf->position, $arf->size, $f;
+    }
+    else {
+        printf "%9s %9s %s\n", qw(- -), $f;
+    }
+}
+
+exit $err if $err > 1;
