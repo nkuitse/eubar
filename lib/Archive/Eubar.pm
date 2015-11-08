@@ -23,7 +23,7 @@ sub metadata {
     my ($self, $filter) = @_;
     my $metadata = $self->{'metadata'};
     if (!$metadata) {
-        my $fhmeta = $self->_fh('.met');
+        my $fhmeta = $self->_fh('.eum');
         my (%backup, %meta, @files);
         my $ofs = 0;
         while (<$fhmeta>) {
@@ -78,7 +78,7 @@ sub extract {
     my ($self, $file, $fh) = @_;
     my $pos = $file->{'@'};
     my $len = $file->{'*'};
-    my $fhdata = $self->_fh('.dat');
+    my $fhdata = $self->_fh('.eud');
     seek $fhdata, $pos, 0 or die "Can't seek to $pos: $!";
     my $buf = '';
     my $n = $len < 8192 ? $len : 8192;
@@ -104,20 +104,25 @@ sub _fh {
 
 package Archive::Eubar::File;
 
+use Fcntl ':mode';
+
 sub path        { @_ > 1 ? $_[0]->{'/'} = $_[1] : $_[0]->{'/'} }
 sub position    { @_ > 1 ? $_[0]->{'@'} = $_[1] : $_[0]->{'@'} }
 sub size        { @_ > 1 ? $_[0]->{'*'} = $_[1] : $_[0]->{'*'} }
 sub hash        { @_ > 1 ? $_[0]->{'#'} = $_[1] : $_[0]->{'#'} }
 sub action      { @_ > 1 ? $_[0]->{'a'} = $_[1] : $_[0]->{'a'} }
+sub type        { @_ > 1 ? $_[0]->{'t'} = $_[1] : $_[0]->{'t'} }
+
 sub ctime       { @_ > 1 ? $_[0]->{'c'} = $_[1] : $_[0]->{'c'} }
 sub dev         { @_ > 1 ? $_[0]->{'d'} = $_[1] : $_[0]->{'d'} }
 sub gid         { @_ > 1 ? $_[0]->{'g'} = $_[1] : $_[0]->{'g'} }
 sub ino         { @_ > 1 ? $_[0]->{'i'} = $_[1] : $_[0]->{'i'} }
 sub mtime       { @_ > 1 ? $_[0]->{'m'} = $_[1] : $_[0]->{'m'} }
 sub nlink       { @_ > 1 ? $_[0]->{'n'} = $_[1] : $_[0]->{'n'} }
-sub perm        { @_ > 1 ? $_[0]->{'p'} = $_[1] : $_[0]->{'p'} }
+sub mode        { @_ > 1 ? $_[0]->{'p'} = $_[1] : $_[0]->{'p'} } # XXX
+sub perm        { @_ > 1 ? $_[0]->{'p'} = $_[1] : $_[0]->{'p'} } # XXX
+sub fmt         { @_ > 1 ? $_[0]->{'p'} = $_[1] : $_[0]->{'p'} } # XXX
 sub rdev        { @_ > 1 ? $_[0]->{'r'} = $_[1] : $_[0]->{'r'} }
-sub type        { @_ > 1 ? $_[0]->{'t'} = $_[1] : $_[0]->{'t'} }
 sub uid         { @_ > 1 ? $_[0]->{'u'} = $_[1] : $_[0]->{'u'} }
 
 sub meta {
@@ -131,3 +136,28 @@ sub meta {
 }
 
 1;
+
+=pod
+
+=head1 NAME
+
+Archive::Eubar - read archives produced by eubar
+
+=head2 SYNOPSIS
+
+    $ar = Archive::Eubar->new($base);
+    @files = $ar->files;
+    $f = $ar->find($path);
+    $ar->extract($f, \*STDOUT);
+
+=head1 DESCRIPTION
+
+Only reading is implemented, and even that is probably not working at this
+point.
+
+=head1 SEE ALSO
+
+eubar(1)
+
+=cut
+
