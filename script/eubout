@@ -4,8 +4,16 @@ use strict;
 use warnings;
 
 use Archive::Eubar;
+use Getopt::Long
+    qw(:config posix_default gnu_compat require_order bundling no_ignore_case);
 
-usage() if @ARGV < 1;
+sub usage;
+
+my %oktype = map { $_ => 1 } qw(f);
+GetOptions(
+    'l' => sub { $oktype{'l'} = 1 },
+) or usage;
+usage if @ARGV < 1;
 
 my $base = shift;
 my $ar = Archive::Eubar->new($base);
@@ -17,7 +25,7 @@ if (@ARGV && $ARGV[0] =~ /^[@](\d+)$/) {
 foreach (@ARGV) {
     my $file = $ar->find($_) or next;
     print(STDERR "Not a plain file: $_\n"), next
-        if $file->type ne 'f';
+        if !$oktype{$file->type};
     $ar->extract($file, \*STDOUT)
         or die "Can't extract ", $file->path;
 }
