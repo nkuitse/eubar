@@ -35,5 +35,7 @@ main(int argc, char **argv) {
         if (eub_stat(&eub, &file) == 0)
             (void) eub_write_meta(&eub, &file);
     }
+    if (eub_write_meta_footer(&eub) != 0)
+        exit(eub.err);
     return(0);
 }
