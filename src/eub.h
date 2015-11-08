@@ -52,7 +52,7 @@ struct eubfile {
     char   *path;
 };
 
-int eub_init(struct eub *eub);
+void eub_init(struct eub *eub);
 int eub_open(struct eub *eub, char *path, char *mode);
 size_t eub_read_path(struct eub *eub, struct eubfile *file);
 size_t eub_read_meta(struct eub *eub, struct eubfile *file);
