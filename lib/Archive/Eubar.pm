@@ -128,8 +128,8 @@ sub uid         { @_ > 1 ? $_[0]->{'u'} = $_[1] : $_[0]->{'u'} }
 sub meta {
     my $self = shift;
     my $type = $self->{'t'};
-    my $meta = sprintf('%s d%d i%d n%d p%o u%d g%d m%d c%d',
-        @$self{qw(t d i n p u g m c)});
+    my $meta = sprintf('%s d%d i%d p%o u%d g%d m%d c%d',
+        @$self{qw(t d i p u g m c)});
     $meta .= sprintf(' r%d', $self->{'r'}) if $type eq 'b' || $type eq 'c';
     $meta .= sprintf(' *%d', $self->{'*'} || 0) if $type eq 'f' || $type eq 'l';
     return $meta . ' ' . $self->{'/'};
