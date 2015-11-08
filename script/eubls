@@ -4,8 +4,31 @@ use strict;
 use warnings;
 
 use Archive::Eubar;
+use Stat::lsMode;
+use Getopt::Long
+    qw(:config posix_default gnu_compat require_order bundling no_ignore_case);
 
+sub usage;
+
+my ($long);
+GetOptions(
+    'l' => \$long,
+) or usage;
 usage() if !@ARGV;
+
 my $ar = Archive::Eubar->new(shift);
 
-print $_, "\n" for $ar->files;
+if ($long) {
+    foreach ($ar->files) {
+        my $arf = $ar->find($_);
+        printf("%s %5d %5d %9d @%9d %s\n",
+            scalar format_mode($arf->mode),
+            $arf->uid, $arf->gid,
+            $arf->size // 0, $arf->position // 0,
+            $arf->path
+        );
+    }
+}
+else {
+    print $_, "\n" for $ar->files;
+}
