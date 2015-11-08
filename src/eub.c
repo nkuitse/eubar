@@ -19,6 +19,50 @@ eub_init(struct eub *eub) {
     return 0;
 }
 
+int
+eub_open(struct eub *eub, char *path, char *mode) {
+    char *pmeta, *pdata;
+    FILE *xdata, *xmeta;
+    size_t pathlen;
+    
+    pathlen = strlen(path);
+    if (pathlen + EUB_EXT_LEN >= PATH_MAX)
+        exit(eub_err(eub, ENAMETOOLONG, "Archive path too long"));
+    memcpy(eub->pathbuf, path, pathlen);
+    if (eub->onefile) {
+        /* Open data file */
+        eub->pathbuf[pathlen] = 0;
+        pdata = strcat(eub->pathbuf, EUB_EXT_BOTH);
+        errno = 0;
+        if (!(xdata = fopen(pdata, mode)))
+            exit(eub_err(eub, errno, "Can't open data file: %s", pdata));
+        xmeta = xdata;
+    }
+    else {
+        /* Open data file */
+        eub->pathbuf[pathlen] = 0;
+        pdata = strcat(eub->pathbuf, EUB_EXT_DATA);
+        errno = 0;
+        if (!(xdata = fopen(pdata, mode)))
+            exit(eub_err(eub, errno, "Can't open data file: %s, pdata"));
+        /* Open metadata file */
+        eub->pathbuf[pathlen] = 0;
+        pmeta = strcat(eub->pathbuf, EUB_EXT_META);
+        errno = 0;
+        if (!(xmeta = fopen(pmeta, mode)))
+            exit(eub_err(eub, errno, "Can't open metadata file: %s", pmeta));
+    }
+    if (strchr(mode, 'w')) {
+        eub->odata = xdata;
+        eub->ometa = xmeta;
+    }
+    else {
+        eub->idata = xdata;
+        eub->imeta = xmeta;
+    }
+    return(0);
+}
+
 size_t
 eub_read_path(struct eub *eub, struct eubfile *file) {
     size_t len;
@@ -27,7 +71,7 @@ eub_read_path(struct eub *eub, struct eubfile *file) {
     len = strlen(eub->pathbuf);
     if (eub->pathbuf[len-1] == '\n')
         eub->pathbuf[--len] = 0;
-    file->path = &eub->pathbuf[0];
+    file->path = eub->pathbuf;
     file->metalen = 0;
     return len;
 }
@@ -37,7 +81,9 @@ eub_read_meta(struct eub *eub, struct eubfile *file) {
     size_t len;
     char *p;
     eub->err = errno = 0;
-    if (fgets(eub->metabuf, META_BUF_LEN, eub->ipath)) {
+    while (fgets(eub->metabuf, META_BUF_LEN, eub->ipath)) {
+        if (eub->metabuf[0] == '#' || eub->metabuf[0] == '$')
+            continue;
         len = strlen(eub->metabuf);
         if (eub->metabuf[len-1] == '\n')
             eub->metabuf[--len] = 0;
@@ -50,7 +96,7 @@ eub_read_meta(struct eub *eub, struct eubfile *file) {
         /* XXX Parse metadata here? */
         return(len);
     }
-    else if (ferror(eub->ipath))
+    if (ferror(eub->ipath))
         return eub_err(eub, errno, "Can't read metadata");
     else
         return 0;
@@ -77,7 +123,8 @@ eub_meta(struct eub *eub, struct eubfile *file) {
     if (file->metalen)
         return(file->metalen);
     stat = &file->stat;
-    perm = stat->st_mode & ~S_IFMT;
+    perm = stat->st_mode;
+    /* perm = stat->st_mode & ~S_IFMT; */
     dev = stat->st_dev;
     ino = stat->st_ino;
     uid = stat->st_uid;
@@ -124,7 +171,7 @@ eub_write_meta(struct eub *eub, struct eubfile *file) {
     len = fprintf(eub->ometa, "%s\n", eub->metabuf);
     if (!len)
         return(eub_err(eub, errno, "Can't write metadata: %s", file->path));
-    if (eub->ometa == eub->odata)
+    if (eub->onefile)
         eub->curpos += len;
     return(0);
 }
@@ -218,16 +265,28 @@ eub_write_data(struct eub *eub, struct eubfile *file) {
     *mp++ = '\n';
     file->metalen = mp - eub->metabuf;
     eub->curpos += size;
+    if (eub->onefile) {
+        fwrite("\n", 1, 1, eub->odata);
+        eub->curpos++;
+    }
     if (!fwrite(eub->metabuf, file->metalen, 1, eub->ometa))
         return(eub_err(eub, errno, "Can't write meta: %s", path));
-    if (eub->ometa == eub->odata)
+    if (eub->onefile)
         eub->curpos += file->metalen;
     return 0;
 }
 
 int
+eub_write_tar(struct eub *eub) {
+    struct eubfile file;
+    while (eub_read_meta(eub, &file)) {
+        ;
+    }
+}
+
+int
 eub_write_meta_footer(struct eub *eub) {
-    if (!fprintf(eub->ometa, "$end %lld\n", time(NULL)))
+    if (!fprintf(eub->ometa, "$end %lld\n", (unsigned long long) time(NULL)))
         return(eub_err(eub, errno, "Can't write meta footer"));
     if (!fwrite("\n", 1, 1, eub->ometa))
         return(eub_err(eub, errno, "Can't write meta footer"));
