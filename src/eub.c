@@ -13,6 +13,9 @@
 #include <blake2.h>
 #include "eub.h"
 
+unsigned long long eub_util_strkeyval(char **pp, char key, int base);
+char eub_util_mode2typechar(mode_t mode);
+
 void
 eub_init(struct eub *eub) {
     bzero(eub, sizeof *eub);
@@ -75,12 +78,12 @@ eub_read_path(struct eub *eub, struct eubfile *file) {
     return(len);
 }
 
-size_t
+int
 eub_read_meta(struct eub *eub, struct eubfile *file) {
     size_t len;
     char *p;
     eub->err = errno = 0;
-    while (fgets(eub->metabuf, META_BUF_LEN, eub->ipath)) {
+    while (fgets(eub->metabuf, META_BUF_LEN, eub->imeta)) {
         if (eub->metabuf[0] == '#' || eub->metabuf[0] == '$')
             continue;
         len = strlen(eub->metabuf);
@@ -95,10 +98,51 @@ eub_read_meta(struct eub *eub, struct eubfile *file) {
         /* XXX Parse metadata here? */
         return(len);
     }
-    if (ferror(eub->ipath))
-        return(eub_err(eub, errno, "Can't read metadata"));
-    else
+    if (ferror(eub->imeta))
+        eub_err(eub, errno, "Can't read metadata");
+    return(0);
+}
+
+int
+eub_read_dataref(struct eub *eub, struct eubfile *file) {
+    size_t len;
+    unsigned long long size;
+    char *p;
+    eub->err = errno = 0;
+    if (!fgets(eub->metabuf, META_BUF_LEN, eub->imeta))
+        return(eub_err(eub, errno, "File data ref expected, found EOF: %s", file->path));
+    len = strlen(eub->metabuf);
+    if (eub->metabuf[len-1] == '\n')
+        eub->metabuf[--len] = 0;
+    if (eub->metabuf[0] != '@')
+        return(eub_err(eub, errno, "Missing pos in file data ref: %s", file->path));
+    file->pos = strtoull(eub->metabuf+1, &p, 10);
+    if (!p)
+        return(eub_err(eub, -1, "Unparseable file data pos: %s", file->path));
+    if (p = strchr(eub->metabuf, '*')) {
+        size = strtoull(++p, &p, 10);
+        if (!p)
+            return(eub_err(eub, -1, "Malformed file size: %s", file->path));
+        if (size != file->size)
+            return(eub_err(eub, -1, "File size mismatch: %s", file->path));
+    }
+    return(0);
+}
+
+int
+eub_seek_data(struct eub *eub, struct eubfile *file) {
+    if (fseeko(eub->idata, file->pos, SEEK_SET))
+        return(eub_err(eub, errno, "Can't seek in data"));
+    return(0);
+}
+
+int
+eub_read_data(struct eub *eub, struct eubfile *file, char *buf, size_t len) {
+    size_t read;
+    if ((read = fread(buf, len, 1, eub->idata)) != 0)
         return(0);
+    else if (ferror(eub->idata))
+        return(eub_err(eub, errno, "Can't read data for %s", file->path));
 }
 
 int
@@ -137,6 +181,30 @@ eub_meta(struct eub *eub, struct eubfile *file) {
     mp += sprintf(mp, " d%ld i%ld r%ld p%o u%ld g%ld m%ld c%ld", dev, ino, rdev, perm, uid, gid, mtime, ctime);
     *mp++ = 0;
     return(mp - eub->metabuf - 1);
+}
+
+int
+eub_meta_to_stat(struct eub *eub, struct eubfile *file) {
+    struct stat *stat = &file->stat;
+    char *p, action, typechar;
+
+    p = eub->metabuf;
+    bzero(stat, sizeof(struct stat));
+    if (!(action = *p++))
+        return(eub_err(eub, -1, "Unparseable metadata: %s", eub->metabuf));
+    if (!(typechar = *p++))
+        return(eub_err(eub, -1, "Unparseable metadata: %s", eub->metabuf));
+    stat->st_dev   = eub_util_strkeyval(&p, 'd', 10);
+    stat->st_ino   = eub_util_strkeyval(&p, 'i', 10);
+    stat->st_rdev  = eub_util_strkeyval(&p, 'r', 10);
+    stat->st_mode  = eub_util_strkeyval(&p, 'p',  8);
+    stat->st_uid   = eub_util_strkeyval(&p, 'u', 10);
+    stat->st_gid   = eub_util_strkeyval(&p, 'g', 10);
+    stat->st_mtime = eub_util_strkeyval(&p, 'm', 10);
+    stat->st_ctime = eub_util_strkeyval(&p, 'c', 10);
+    if (S_ISREG(stat->st_mode) || S_ISLNK(stat->st_mode))
+        stat->st_size = eub_util_strkeyval(&p, '*', 10);
+    return(0);
 }
 
 int
@@ -290,15 +358,6 @@ eub_write_data(struct eub *eub, struct eubfile *file) {
 }
 
 int
-eub_write_tar(struct eub *eub) {
-    struct eubfile file;
-    while (eub_read_meta(eub, &file)) {
-        ;
-    }
-    return(eub->err);
-}
-
-int
 eub_write_meta_footer(struct eub *eub) {
     if (!fprintf(eub->ometa, "$end %lld\n", (unsigned long long) time(NULL))
             || !fprintf(eub->ometa, "$size %lld\n", eub->curpos)
@@ -339,3 +398,22 @@ eub_util_mode2typechar(mode_t mode) {
     default:       return('?');
     }
 }
+
+unsigned long long
+eub_util_strkeyval(char **pp, char key, int base) {
+    char *p = *pp, c;
+    unsigned long long val = 0;
+    if (!*pp)
+        return(0);
+    if ((c = *p++) == ' ') {
+        if ((c = *p++) == key)
+            val = strtoull(p, pp, base);
+        else
+            *pp = NULL;
+    }
+    else {
+        *pp = NULL;
+    }
+    return(val);
+}
+
