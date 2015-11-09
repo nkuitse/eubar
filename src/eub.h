@@ -55,7 +55,10 @@ struct eubfile {
 void eub_init(struct eub *eub);
 int eub_open(struct eub *eub, char *path, char *mode);
 size_t eub_read_path(struct eub *eub, struct eubfile *file);
-size_t eub_read_meta(struct eub *eub, struct eubfile *file);
+int eub_read_meta(struct eub *eub, struct eubfile *file);
+int eub_read_data_ref(struct eub *eub, struct eubfile *file);
+int eub_seek_data(struct eub *eub, struct eubfile *file);
+int eub_read_data(struct eub *eub, struct eubfile *file, char *buf, size_t len);
 int eub_write_meta(struct eub *eub, struct eubfile *file);
 int eub_stat(struct eub *eub, struct eubfile *file);
 size_t eub_meta(struct eub *eub, struct eubfile *file);
@@ -64,4 +67,3 @@ int eub_write_data_header(struct eub *eub);
 int eub_write_data(struct eub *eub, struct eubfile *file);
 int eub_err(struct eub *eub, int err, char *fmt, ...);
 void eub_die(struct eub *eub, char *fmt, ...);
-char eub_util_mode2typechar(mode_t mode);
