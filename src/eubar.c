@@ -68,7 +68,10 @@ main(int argc, char **argv) {
                    break;
         default  : usage();
     } ARGEND;
-    eub.ipath = stdin;
+    if (opt_m)
+        eub.imeta = stdin;
+    else
+        eub.ipath = stdin;
     if (argc == 1) {
         if (eub_open(&eub, argv[0], "w"))
             exit(eub.err);
