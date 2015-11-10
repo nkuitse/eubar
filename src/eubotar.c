@@ -20,6 +20,30 @@ usage(void) {
     exit(1);
 }
 
+unsigned int
+hash_path(libtar_listptr_t key, unsigned int mod)
+{
+    /* djb hash function */
+    register unsigned h;
+    register int i;
+    register char *p;
+    if (!key)
+        return(0);
+    p = (char *) key->data;
+    for (h = 5381, i = 0; *p; i++)
+        h = (h << 5) + h + *p++;
+    return(h % mod);
+}
+
+int
+compare_paths(void *data1, void *data2) {
+    libtar_listptr_t lp1 = (libtar_listptr_t) data1;
+    libtar_listptr_t lp2 = (libtar_listptr_t) data2;
+    char *p1 = (char *) lp1->data;
+    char *p2 = (char *) lp2->data;
+    return (strcmp(p1, p2) == 0);
+}
+
 int
 main(int argc, char **argv) {
     struct eub eub;
@@ -27,7 +51,8 @@ main(int argc, char **argv) {
     int opt_P = 0;
     TAR *tarp;
     char buf[512];
-
+    libtar_hash_t *lthash = NULL;
+    
     eub_init(&eub);
     ARGBEGIN {
         case '1' : eub.onefile = 1;
@@ -37,9 +62,12 @@ main(int argc, char **argv) {
         default  : usage();
     } ARGEND;
 
-    if (argc == 1) {
+    if (argc >= 1) {
         if (eub_open(&eub, argv[0], "r"))
             return(eub.err);
+        lthash = libtar_hash_new(3, (libtar_hashfunc_t) hash_path);
+        while (--argc)
+            libtar_hash_add(lthash, ++argv);
     }
     else if (eub.onefile) {
         eub.idata = eub.imeta = stdin;
@@ -47,24 +75,32 @@ main(int argc, char **argv) {
     else {
         usage();
     }
+
     if (tar_fdopen(&tarp, 1, "/dev/stdout", NULL, O_WRONLY, 0600, TAR_GNU) != 0)
         return(eub_err(&eub, errno, "Can't start tar output"));
     while (eub_read_meta(&eub, &file)) {
         unsigned long long len, remlen;
+        struct libtar_node lp = { file.path, 0, 0 };
+        libtar_hashptr_t hp;
+        hp.bucket = -1;
+        hp.node = NULL;
+        /*
+        if (lthash && !libtar_hash_search(lthash, &hp, &lp, (libtar_matchfunc_t) compare_paths))
+        */
+        if (lthash && !libtar_hash_getkey(lthash, &hp, &lp, (libtar_matchfunc_t) compare_paths))
+            continue;
         if (eub_meta_to_stat(&eub, &file))
             return(eub.err);
         th_set_path(tarp, file.path);
         th_set_from_stat(tarp, &file.stat);
         /* XXX Hack! */
-        if (file.typechar == 'f' && file.size == 0) {
+        if (file.typechar == 'f') {
             len = strlen(tarp->th_buf.name);
             if (tarp->th_buf.name[len-1] == '/') {
                 /* Argh!! */
                 tarp->th_buf.name[len-1] = 0;
             }
-        }
-        if (file.typechar == 'f') {
-            if (eub_read_dataref(&eub, &file))
+            if (!eub.onefile && eub_read_dataref(&eub, &file))
                 return(eub.err);
         }
         else if (file.typechar == 'l') {
@@ -82,7 +118,7 @@ main(int argc, char **argv) {
             return(eub_err(&eub, errno, "Can't write tar header for %s", file.path));
         fflush(stdout);
         if (file.typechar == 'f') {
-            if (eub_seek_data(&eub, &file))
+            if (!eub.onefile && eub_seek_data(&eub, &file))
                 return(eub.err);
             for (remlen = file.size; remlen; remlen -= len) {
                 len = remlen < sizeof(buf) ? remlen : sizeof(buf);
@@ -94,6 +130,8 @@ main(int argc, char **argv) {
                     return(eub_err(&eub, errno, "Can't write to tar: %s", file.path));
                 fflush(stdout);
             }
+            if (eub.onefile && fgetc(eub.idata) != '\n')
+                return(eub_err(&eub, errno, "File contents not newline-terminated: %s", file.path));
             if (eub.err)
                 return(eub.err);
         }
