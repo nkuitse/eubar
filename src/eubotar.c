@@ -65,9 +65,11 @@ main(int argc, char **argv) {
     if (argc >= 1) {
         if (eub_open(&eub, argv[0], "r"))
             return(eub.err);
-        lthash = libtar_hash_new(3, (libtar_hashfunc_t) hash_path);
-        while (--argc)
-            libtar_hash_add(lthash, ++argv);
+        if (argc > 1) {
+            lthash = libtar_hash_new(3, (libtar_hashfunc_t) hash_path);
+            while (--argc)
+                libtar_hash_add(lthash, ++argv);
+        }
     }
     else if (eub.onefile) {
         eub.idata = eub.imeta = stdin;
@@ -91,15 +93,14 @@ main(int argc, char **argv) {
             continue;
         if (eub_meta_to_stat(&eub, &file))
             return(eub.err);
-        th_set_path(tarp, file.path);
         th_set_from_stat(tarp, &file.stat);
-        /* XXX Hack! */
+        th_set_path(tarp, file.path);
         if (file.typechar == 'f') {
+            /* XXX Hack!
             len = strlen(tarp->th_buf.name);
-            if (tarp->th_buf.name[len-1] == '/') {
-                /* Argh!! */
+            if (tarp->th_buf.name[len-1] == '/')
                 tarp->th_buf.name[len-1] = 0;
-            }
+            */
             if (!eub.onefile && eub_read_dataref(&eub, &file))
                 return(eub.err);
         }
