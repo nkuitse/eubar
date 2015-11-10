@@ -106,7 +106,7 @@ eub_read_meta(struct eub *eub, struct eubfile *file) {
 int
 eub_read_dataref(struct eub *eub, struct eubfile *file) {
     size_t len;
-    unsigned long long size;
+    unsigned long long size = 0;
     char *p;
     eub->err = errno = 0;
     if (!fgets(eub->metabuf, META_BUF_LEN, eub->imeta))
@@ -114,17 +114,23 @@ eub_read_dataref(struct eub *eub, struct eubfile *file) {
     len = strlen(eub->metabuf);
     if (eub->metabuf[len-1] == '\n')
         eub->metabuf[--len] = 0;
-    if (eub->metabuf[0] != '@')
-        return(eub_err(eub, errno, "Missing pos in file data ref: %s", file->path));
-    file->pos = strtoull(eub->metabuf+1, &p, 10);
-    if (!p)
-        return(eub_err(eub, -1, "Unparseable file data pos: %s", file->path));
     if (p = strchr(eub->metabuf, '*')) {
         size = strtoull(++p, &p, 10);
         if (!p)
             return(eub_err(eub, -1, "Malformed file size: %s", file->path));
         if (size != file->size)
             return(eub_err(eub, -1, "File size mismatch: %s", file->path));
+    }
+    if (size == 0) {
+        file->pos = 0;
+    }
+    else if (eub->metabuf[0] == '@') {
+        file->pos = strtoull(eub->metabuf+1, &p, 10);
+        if (!p)
+            return(eub_err(eub, -1, "Unparseable file data pos: %s", file->path));
+    }
+    else {
+        return(eub_err(eub, errno, "Missing pos in file data ref: %s", file->path));
     }
     return(0);
 }
