@@ -11,10 +11,11 @@
 #include "arg.h"
 
 char *argv0;
+int opt_m = 0, opt_h = 0, opt_s = 0, opt_e = 0;
 
 void
 usage(void) {
-    fputs("usage: eubar [-m1] [-k ID] [-t SEC] [-h HASHLEN] [BASE]\n", stderr);
+    fputs("usage: eubar [-ms1] [-k ID] [-t SEC] [-h HASHLEN] [BASE]\n", stderr);
     exit(1);
 }
 
@@ -23,8 +24,10 @@ create_from_paths(struct eub *eub, struct eubfile *file) {
     int err = 0;
     file->path = &eub->pathbuf[0];
     while (eub_read_path(eub, file)) {
-        if (eub_stat(eub, file) || eub_write_meta(eub, file) || eub_write_data(eub, file))
+        if (eub_stat(eub, file) || eub_write_meta(eub, file))
             err = eub->err;
+        else if (!opt_s && eub_write_data(eub, file))
+            err = eub_write_data(eub, file);
     }
     return(err);
 }
@@ -34,7 +37,9 @@ create_from_meta(struct eub *eub, struct eubfile *file) {
     int err = 0;
     file->path = &eub->pathbuf[0];
     while (eub_read_meta(eub, file)) {
-        if (eub_write_meta(eub, file) || eub_write_data(eub, file))
+        if (eub_write_meta(eub, file))
+            err = eub->err;
+        else if (!opt_s && eub_write_data(eub, file))
             err = eub->err;
     }
     return(err);
@@ -44,13 +49,16 @@ int
 main(int argc, char **argv) {
     struct eub eub;
     struct eubfile file;
-    int opt_m = 0;
-    size_t opt_h = 0;
     int err = 0;
+    char *archive = 0;
 
     eub_init(&eub);
     ARGBEGIN {
+        case 'a' : archive = EARGF(usage());
+                   break;
         case 'm' : opt_m = 1;
+                   break;
+        case 's' : opt_s = 1;
                    break;
         case '1' : eub.onefile = 1;
                    break;
@@ -67,6 +75,9 @@ main(int argc, char **argv) {
                    break;
         default  : usage();
     } ARGEND;
+    if (archive) {
+        ;
+    }
     if (opt_m)
         eub.imeta = stdin;
     else
@@ -93,3 +104,11 @@ main(int argc, char **argv) {
     return(eub_write_meta_footer(&eub));
 }
 
+/*
+    typical uses:
+
+        find ... | eubar ARCHIVE
+        find ... | eubar > ARCHIVE.eud 2> ARCHIVE.eum
+        eubar -e -a ARCHIVE find ...
+        eubar -e find ...
+*/
