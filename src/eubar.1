@@ -21,10 +21,37 @@ and data is written to \fIARCHIVE\fB.eud\fR.
 .SH OPTIONS
 .
 .TP
+\fB\-s\fR
+Print file metadata to standard out; do not write any file or link contents.
+.
+.TP
+\fB\-a\fI ARCHIVE\fR
+Write metadata to \fIARCHIVE\fR.eum and file and link contents
+to \fIARCHIVE\fR.eud.
+.
+.TP
+\fB-e\fR
+Arguments specify a command to execute, and any arguments it requires; the
+output of this command must be a list of paths to archive.
+.
+.TP
 \fB\-h\fI NUMBYTES\fR
 Include BLAKE2b hashes of length \fINUMBYTES\fR
 in the metadata output.
 \fINUMBYTES\fR should be in the range 8-64.
+.
+.SH EXAMPLES
+.
+.P
+.nf
+.B find /home | eubar /var/backup/home
+.fi
+Backup everything in \fB/home\fR to \fB/var/backup/home.eud\fR
+and \fB/var/backup/home.eum\fR.
+.P
+.B eubar -a /var/backup/home -e find /home
+.fi
+Same thing.
 .
 .SH FILES
 .
