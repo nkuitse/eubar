@@ -1,0 +1,25 @@
+Incremental backups
+===================
+
+eubar -r ARCHIVE can be used to perform a referential (a.k.a. differential or
+incremental) backup using any previous backup as a reference point.
+
+First, do a full backup to a new archive:
+
+    eubar -a FULL -e find /foo
+
+Then create an archive with only changed or added files:
+
+    eubar -a INCR -r FULL -e find /foo
+
+Here, eubar reads metadata from the reference backup, printing differential
+data and metadata to INCR.eud and INCR.eum, respectively.  You can use -R
+instead of -r ARCHIVE to read reference metadata from standard input, which
+comes in handy when backing up to a remote server.
+
+For example, if you store data and metadata in compressed form on the server:
+
+    gunzip < INCR.eum.gz |
+    ssh CLIENT1 eubar -R -e find /foo 2> >(gzip > INCR.eum.gz) |
+    gzip > FULL.eud.gz
+
