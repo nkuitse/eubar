@@ -18,28 +18,26 @@ usage(void) {
     exit(1);
 }
 
-void
+int
 create_from_paths(struct eub *eub, struct eubfile *file) {
+    int err = 0;
     file->path = &eub->pathbuf[0];
     while (eub_read_path(eub, file)) {
         if (eub_stat(eub, file) || eub_write_meta(eub, file) || eub_write_data(eub, file))
-            exit(eub->err);
+            err = eub->err;
     }
-    if (eub->err || eub_write_meta_footer(eub))
-        exit(eub->err);
+    return(err);
 }
 
-void
+int
 create_from_meta(struct eub *eub, struct eubfile *file) {
+    int err = 0;
     file->path = &eub->pathbuf[0];
     while (eub_read_meta(eub, file)) {
         if (eub_write_meta(eub, file) || eub_write_data(eub, file))
-            exit(eub->err);
+            err = eub->err;
     }
-    if (eub->err)
-        exit(eub->err);
-    if (eub_write_meta_footer(eub))
-        exit(eub->err);
+    return(err);
 }
 
 int
@@ -48,6 +46,7 @@ main(int argc, char **argv) {
     struct eubfile file;
     int opt_m = 0;
     size_t opt_h = 0;
+    int err = 0;
 
     eub_init(&eub);
     ARGBEGIN {
@@ -86,9 +85,11 @@ main(int argc, char **argv) {
     if (eub_write_header(&eub))
         exit(eub.err);
     if (opt_m)
-        create_from_meta(&eub, &file);
+        eub.err = create_from_meta(&eub, &file);
     else
-        create_from_paths(&eub, &file);
-    return(0);
+        eub.err = create_from_paths(&eub, &file);
+    if (eub.err)
+        return(eub.err);
+    return(eub_write_meta_footer(&eub));
 }
 
