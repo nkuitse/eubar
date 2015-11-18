@@ -8,11 +8,12 @@ use File::Stat::Bits;
 
 usage() if !@ARGV;
 my $ar = Archive::Eubar->new(shift);
+my $h = $ar->metadata;
 
 while (defined(my $path = <STDIN>)) {
     next if $path !~ s{[^/]*(?=/)}{};
     chomp $path;
-    my $arf = $ar->find($path);
+    my $arf = delete $h->{$path};
     my @stat = lstat $path;
     if (!defined $arf) {
         # It's a new file
@@ -30,6 +31,11 @@ while (defined(my $path = <STDIN>)) {
             print '+', $fsmeta, "\n";
         }
     }
+}
+
+foreach (sort keys %$h) {
+    my $arf = $h->{$_};
+    print '-', $arf->type, ' ', $arf->path, "\n";
 }
 
 sub stat2file {
