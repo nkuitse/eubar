@@ -16,7 +16,7 @@ char *argv0;
 
 void
 usage(void) {
-    fputs("usage: eubotar [-1] [BASE]\n", stderr);
+    fputs("usage: eubotar [-R] BASE [FILE]...\n", stderr);
     exit(1);
 }
 
