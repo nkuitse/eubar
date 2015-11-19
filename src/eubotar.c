@@ -55,27 +55,19 @@ main(int argc, char **argv) {
     
     eub_init(&eub);
     ARGBEGIN {
-        case '1' : eub.onefile = 1;
-                   break;
         case 'P' : opt_P = 1;
                    break;
         default  : usage();
     } ARGEND;
 
-    if (argc >= 1) {
-        if (eub_open(&eub, argv[0], "r"))
-            return(eub.err);
-        if (argc > 1) {
-            lthash = libtar_hash_new(3, (libtar_hashfunc_t) hash_path);
-            while (--argc)
-                libtar_hash_add(lthash, ++argv);
-        }
-    }
-    else if (eub.onefile) {
-        eub.idata = eub.imeta = stdin;
-    }
-    else {
+    if (argc == 0)
         usage();
+    if (eub_open(&eub, argv[0], "r"))
+        return(eub.err);
+    if (argc > 1) {
+        lthash = libtar_hash_new(3, (libtar_hashfunc_t) hash_path);
+        while (--argc)
+            libtar_hash_add(lthash, ++argv);
     }
 
     if (tar_fdopen(&tarp, 1, "/dev/stdout", NULL, O_WRONLY, 0600, TAR_GNU) != 0)
@@ -101,7 +93,7 @@ main(int argc, char **argv) {
             if (tarp->th_buf.name[len-1] == '/')
                 tarp->th_buf.name[len-1] = 0;
             */
-            if (!eub.onefile && eub_read_dataref(&eub, &file))
+            if (eub_read_dataref(&eub, &file))
                 return(eub.err);
         }
         else if (file.typechar == 'l') {
@@ -119,7 +111,7 @@ main(int argc, char **argv) {
             return(eub_err(&eub, errno, "Can't write tar header for %s", file.path));
         fflush(stdout);
         if (file.typechar == 'f') {
-            if (!eub.onefile && eub_seek_data(&eub, &file))
+            if (eub_seek_data(&eub, &file))
                 return(eub.err);
             for (remlen = file.size; remlen; remlen -= len) {
                 len = remlen < sizeof(buf) ? remlen : sizeof(buf);
@@ -131,8 +123,6 @@ main(int argc, char **argv) {
                     return(eub_err(&eub, errno, "Can't write to tar: %s", file.path));
                 fflush(stdout);
             }
-            if (eub.onefile && fgetc(eub.idata) != '\n')
-                return(eub_err(&eub, errno, "File contents not newline-terminated: %s", file.path));
             if (eub.err)
                 return(eub.err);
         }
