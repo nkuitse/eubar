@@ -11,11 +11,10 @@
 #include "arg.h"
 
 char *argv0;
-int opt_m = 0, opt_h = 0, opt_s = 0, opt_e = 0;
 
 void
 usage(void) {
-    fputs("usage: eubar [-ms1] [-k ID] [-t SEC] [-h HASHLEN] [BASE]\n", stderr);
+    fputs("usage: eubar [-sm] [-o BASE] [-k ID] [-t SEC] [-h HASHLEN] [CMD [ARG...]]\n", stderr);
     exit(1);
 }
 
@@ -26,7 +25,7 @@ create_from_paths(struct eub *eub, struct eubfile *file) {
     while (eub_read_path(eub, file)) {
         if (eub_stat(eub, file) || eub_write_meta(eub, file))
             err = eub->err;
-        else if (!opt_s && eub_write_data(eub, file))
+        else if (eub->odata && eub_write_data(eub, file))
             err = eub_write_data(eub, file);
     }
     return(err);
@@ -39,7 +38,7 @@ create_from_meta(struct eub *eub, struct eubfile *file) {
     while (eub_read_meta(eub, file)) {
         if (eub_write_meta(eub, file))
             err = eub->err;
-        else if (!opt_s && eub_write_data(eub, file))
+        else if (eub->odata && eub_write_data(eub, file))
             err = eub->err;
     }
     return(err);
@@ -53,52 +52,38 @@ main(int argc, char **argv) {
     char *archive = 0;
 
     eub_init(&eub);
+    eub.ipath = stdin;
+    eub.odata = stdout;
+    eub.ometa = stderr;
     ARGBEGIN {
-        case 'a' : archive = EARGF(usage());
+        case 's' : eub.imeta = stdin;
+                   eub.ipath = 0;
                    break;
-        case 'm' : opt_m = 1;
+        case 'm' : eub.odata = 0;
+                   eub.ometa = stdout;
                    break;
-        case 's' : opt_s = 1;
-                   break;
-        case '1' : eub.onefile = 1;
+        case 'o' : if (eub_open(&eub, EARGF(usage()), "w"))
+                       exit(eub.err);
                    break;
         case 'k' : eub.id = EARGF(usage());
                    break;
         case 't' : eub.begin = strtoull(EARGF(usage()), NULL, 10);
                    break;
-        case 'h' : opt_h = atoi(EARGF(usage()));
-                   if (opt_h < 1 || opt_h > 64)
+        case 'h' : eub.hashlen = atoi(EARGF(usage()));
+                   if (eub.hashlen < 1 || eub.hashlen > 64)
                        usage();
-                   if (((opt_h << 1) - 1) != ((opt_h - 1) | opt_h))
+                   if (((eub.hashlen << 1) - 1) != ((eub.hashlen - 1) | eub.hashlen))
                        usage();  /* Not a power of 2 */
-                   eub.hashlen = opt_h;
                    break;
         default  : usage();
     } ARGEND;
-    if (archive) {
-        ;
-    }
-    if (opt_m)
-        eub.imeta = stdin;
-    else
-        eub.ipath = stdin;
-    if (argc == 1) {
-        if (eub_open(&eub, argv[0], "w"))
-            exit(eub.err);
-    }
-    else if (eub.onefile) {
-        eub.odata = eub.ometa = stdout;
-    }
-    else {
-        eub.odata = stdout;
-        eub.ometa = stderr;
-    }
+
     if (eub_write_header(&eub))
         exit(eub.err);
-    if (opt_m)
-        eub.err = create_from_meta(&eub, &file);
-    else
+    if (eub.ipath)
         eub.err = create_from_paths(&eub, &file);
+    else
+        eub.err = create_from_meta(&eub, &file);
     if (eub.err)
         return(eub.err);
     return(eub_write_meta_footer(&eub));
@@ -107,8 +92,7 @@ main(int argc, char **argv) {
 /*
     typical uses:
 
-        find ... | eubar ARCHIVE
-        find ... | eubar > ARCHIVE.eud 2> ARCHIVE.eum
-        eubar -e -a ARCHIVE find ...
-        eubar -e find ...
+        find ... | eubar -o ARCH
+        find ... | eubar > ARCH.eud 2> ARCHIVE.eum
+        find ... | eubdiff PREVARCH | eubar -s
 */
