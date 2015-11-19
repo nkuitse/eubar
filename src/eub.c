@@ -31,29 +31,18 @@ eub_open(struct eub *eub, char *path, char *mode) {
     if (pathlen + EUB_EXT_LEN >= PATH_MAX)
         exit(eub_err(eub, ENAMETOOLONG, "Archive path too long"));
     memcpy(eub->pathbuf, path, pathlen);
-    if (eub->onefile) {
-        /* Open data file */
-        eub->pathbuf[pathlen] = 0;
-        pdata = strcat(eub->pathbuf, EUB_EXT_BOTH);
-        errno = 0;
-        if (!(xdata = fopen(pdata, mode)))
-            exit(eub_err(eub, errno, "Can't open data file: %s", pdata));
-        xmeta = xdata;
-    }
-    else {
-        /* Open data file */
-        eub->pathbuf[pathlen] = 0;
-        pdata = strcat(eub->pathbuf, EUB_EXT_DATA);
-        errno = 0;
-        if (!(xdata = fopen(pdata, mode)))
-            exit(eub_err(eub, errno, "Can't open data file: %s, pdata"));
-        /* Open metadata file */
-        eub->pathbuf[pathlen] = 0;
-        pmeta = strcat(eub->pathbuf, EUB_EXT_META);
-        errno = 0;
-        if (!(xmeta = fopen(pmeta, mode)))
-            exit(eub_err(eub, errno, "Can't open metadata file: %s", pmeta));
-    }
+    /* Open data file */
+    eub->pathbuf[pathlen] = 0;
+    pdata = strcat(eub->pathbuf, EUB_EXT_DATA);
+    errno = 0;
+    if (!(xdata = fopen(pdata, mode)))
+        exit(eub_err(eub, errno, "Can't open data file: %s, pdata"));
+    /* Open metadata file */
+    eub->pathbuf[pathlen] = 0;
+    pmeta = strcat(eub->pathbuf, EUB_EXT_META);
+    errno = 0;
+    if (!(xmeta = fopen(pmeta, mode)))
+        exit(eub_err(eub, errno, "Can't open metadata file: %s", pmeta));
     if (strchr(mode, 'w')) {
         eub->odata = xdata;
         eub->ometa = xmeta;
@@ -244,14 +233,12 @@ eub_write_meta(struct eub *eub, struct eubfile *file) {
     len = fprintf(eub->ometa, "%s\n", eub->metabuf);
     if (!len)
         return(eub_err(eub, errno, "Can't write metadata: %s", file->path));
-    if (eub->onefile)
-        eub->curpos += len;
     return(0);
 }
 
 int
 eub_write_header(struct eub *eub) {
-    if (eub->ometa && !eub->onefile)
+    if (eub->ometa)
         if (eub_write_meta_header(eub))
             return(eub->err);
     if (eub->odata)
@@ -280,7 +267,7 @@ int
 eub_write_data_header(struct eub *eub) {
     char *magic;
     
-    magic = eub->onefile ? EUB_MAGIC_BOTH : EUB_MAGIC_DATA;
+    magic = EUB_MAGIC_DATA;
     eub->err = errno = 0;
     if (!fwrite(magic, EUB_MAGIC_LEN, 1, eub->odata))
         return(eub_err(eub, errno, "Can't write data header"));
@@ -352,14 +339,8 @@ eub_write_data(struct eub *eub, struct eubfile *file) {
     *mp++ = '\n';
     file->metalen = mp - eub->metabuf;
     eub->curpos += size;
-    if (eub->onefile) {
-        fwrite("\n", 1, 1, eub->odata);
-        eub->curpos++;
-    }
     if (!fwrite(eub->metabuf, file->metalen, 1, eub->ometa))
         return(eub_err(eub, errno, "Can't write meta: %s", path));
-    if (eub->onefile)
-        eub->curpos += file->metalen;
     return(0);
 }
 

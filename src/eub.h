@@ -25,7 +25,6 @@ struct eub {
     FILE *odata;
     FILE *ometa;
 
-    int onefile;
     char *errpfx;
     int err;
     unsigned long long curpos;
