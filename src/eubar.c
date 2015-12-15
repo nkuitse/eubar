@@ -38,7 +38,7 @@ create_from_meta(struct eub *eub, struct eubfile *file) {
     while (eub_read_meta(eub, file)) {
         if (eub_write_meta(eub, file))
             err = eub->err;
-        else if (eub->odata && eub_write_data(eub, file))
+        else if (eub->odata && file->action != '-' && eub_write_data(eub, file))
             err = eub->err;
     }
     return(err);
@@ -77,7 +77,8 @@ main(int argc, char **argv) {
                    break;
         default  : usage();
     } ARGEND;
-
+    if (argc)
+        usage();
     if (eub_write_header(&eub))
         exit(eub.err);
     if (eub.ipath)
