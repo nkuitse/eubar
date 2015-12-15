@@ -241,9 +241,6 @@ eub_write_header(struct eub *eub) {
     if (eub->ometa)
         if (eub_write_meta_header(eub))
             return(eub->err);
-    if (eub->odata)
-        if (eub_write_data_header(eub))
-            return(eub->err);
     return(0);
 }
 
@@ -260,18 +257,6 @@ eub_write_meta_header(struct eub *eub) {
         return(eub_err(eub, errno, "Can't write meta header"));
     if (eub->hashlen)
         fprintf(stderr, "$hash BLAKE2b/%d\n", eub->hashlen * 8);
-    return(0);
-}
-
-int
-eub_write_data_header(struct eub *eub) {
-    char *magic;
-    
-    magic = EUB_MAGIC_DATA;
-    eub->err = errno = 0;
-    if (!fwrite(magic, EUB_MAGIC_LEN, 1, eub->odata))
-        return(eub_err(eub, errno, "Can't write data header"));
-    eub->curpos += EUB_MAGIC_LEN;
     return(0);
 }
 
