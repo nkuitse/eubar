@@ -1,6 +1,4 @@
-#define EUB_MAGIC_DATA "#eubar data 1.0\n"
 #define EUB_MAGIC_META "#eubar meta 1.0\n"
-#define EUB_MAGIC_BOTH "#eubar arch 1.0\n"
 #define EUB_MAGIC_LEN 16
 
 #define PATH_BUF_LEN (PATH_MAX+1)
@@ -10,7 +8,6 @@
 
 #define EUB_EXT_DATA ".eud"
 #define EUB_EXT_META ".eum"
-#define EUB_EXT_BOTH ".eub"
 #define EUB_EXT_LEN 4
 
 struct eub {
