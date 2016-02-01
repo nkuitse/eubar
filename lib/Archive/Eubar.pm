@@ -27,19 +27,18 @@ sub metadata {
         my (%backup, %meta, @files);
         my $ofs = 0;
         while (<$fhmeta>) {
-            last if /^$/;
-            if (/^[@](\d+) [*](\d+)(?: [#]\S+)? (\S+)$/) {
+            next if /^$/;
+            if (m{^[@](\d+) [*](\d+)(?: [#]\S+)? ([/.].*)$}) {
                 my ($pos, $size, $path) = ($1, $2, $3);
                 die if !defined $meta{$path};
                 $meta{$path}{'@'} = $ofs + $pos;
                 next;
             }
-            $ofs = $1, next if /^\@([0-9]+)$/;
             $self->{$1} = $2, next if /^(\$\S+) (.*)/;
             next if /^eubar:/;
             next if /^\#eubar/;
-            m{\A(.)(.)( [^/]+) (/.*)$}
-                or die "Unrecognized metadata line: $_";
+            delete $metadata->{$1}, next if m{^-. ([/.].+)};
+            next if !m{\A(.)(.)( [^/.]+) ([/.].*)$};
             my ($action, $type, $props, $path) = ($1, $2, $3, $4);
             my %file = (
                 't' => $type,
