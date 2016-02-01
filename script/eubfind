@@ -2,6 +2,7 @@
 
 use strict;
 use warnings;
+use bigint;
 
 use Archive::Eubar;
 
@@ -11,6 +12,8 @@ my $base = shift;
 my $ar = Archive::Eubar->new($base);
 
 my $err = 1;
+my %want = map { $_ => 1 } @ARGV;
+
 foreach my $f (@ARGV) {
     my $arf = $ar->find($f);
     $err++, print(STDERR "Can't find: $f\n"), next if !$arf;
