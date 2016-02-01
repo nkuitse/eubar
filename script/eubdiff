@@ -4,7 +4,7 @@ use strict;
 use warnings;
 
 use Archive::Eubar;
-use File::Stat::Bits;
+use Fcntl qw(:mode);
 
 usage() if !@ARGV;
 my $ar = Archive::Eubar->new(shift);
