@@ -62,8 +62,7 @@ main(int argc, char **argv) {
         case 'm' : eub.odata = 0;
                    eub.ometa = stdout;
                    break;
-        case 'o' : if (eub_open(&eub, EARGF(usage()), "w"))
-                       exit(eub.err);
+        case 'o' : archive = EARGF(usage());
                    break;
         case 'k' : eub.id = EARGF(usage());
                    break;
@@ -79,6 +78,8 @@ main(int argc, char **argv) {
     } ARGEND;
     if (argc)
         usage();
+    if (archive != 0 && eub_open(&eub, archive, "w"))
+        exit(eub.err);
     if (eub_write_header(&eub))
         exit(eub.err);
     if (eub.ipath)
@@ -94,6 +95,7 @@ main(int argc, char **argv) {
     typical uses:
 
         find ... | eubar -o ARCH
-        find ... | eubar > ARCH.eud 2> ARCHIVE.eum
+        find ... | eubar > ARCH.eud 2> ARCH.eum
+        find ... | eubar -c 64M -d DIR/%d 2> ARCH.eum
         find ... | eubdiff PREVARCH | eubar -s
 */
