@@ -1,0 +1,213 @@
+=head1 NAME
+
+eubar - backup data and metadata stream formats
+
+=head1 DESCRIPTION
+
+B<eubar> generates two separate streams of output: file data (the contents of
+regular files and of symbolic links) and file metadata (other details, such as
+path and permissions, on the files in a backup).
+
+=head1 DATA
+
+The data stream consists of the contents of all regular files and symbolic
+links in the backup, without any headers or separators or escaping or encoding
+or anything else of that nature -- just the raw bytes from the files
+themselves.
+
+To find the contents of a particular file within the backup, one must consult
+the metadata for the backup, which locates (by offset and length) each file's
+contents.
+
+=head1 METADATA
+
+The metadata that B<eubar> produces is in a simple plain-text format.  There
+are several types of lines, each recognizable by its first byte.  Each line is
+terminated by a newline character (ASCII 10 decimal, 0A hexadecimal).
+
+The first line must consist of the 15-byte string C<#eubar meta 1.0>.
+
+Lines beginning with C<$> specify backup properties in I<key> I<value> format,
+with a single space separating I<key> and I<value>.  The following properties
+are defined:
+
+=over 4
+
+=item B<$begin> I<TIME>
+
+The time (seconds since the Unix epoch) at which the backup began.  Required.
+
+=item B<$end> I<TIME>
+
+The time (seconds since the Unix epoch) at which the backup ended.  Required.
+
+=item B<$size> I<BYTES>
+
+The size (in bytes) of the backup data stream.  Optional.
+
+=back
+
+The remaining lines in the metadata stream are of two types: B<stat> lines
+record the type, size, permissions, etc., of a file, while B<locator> lines
+locate the file's contents (or, in the case of a symbolic link, the link's
+target).
+
+=head2 Stat lines
+
+The data in a stat line is obtained by calling L<lstat(1)> and is encoded as a
+sequence of fields, separated by a single space (ASCII character 32) and
+followed by the file's path.  Each field consists of a key and value,
+concatenated without any separator; the key is a single byte designating the
+field, and the value is an integer designating the value of the field.
+
+The first field consists of B<+> or B<-> followed by the file's type.  A
+leading B<+> indicates a file that is present in the backup, while B<->
+indicates that the file is absent (i.e., it has been deleted since the previous
+backup).
+
+The byte following initial C<+> or C<-> indicates the file's type: B<f> for a
+regular file, B<d> for a directory, B<l> for a symbolic link, etc.  The file
+types, and their corresponding B<st_mode> masks, are:
+
+=over 4
+
+=item B<f>
+
+regular file (S_IFREG)
+
+=item B<d>
+
+directory (S_IFDIR)
+
+=item B<l>
+
+symbolic link (S_IFLNK)
+
+=item B<b>
+
+block device (S_IFBLK)
+
+=item B<c>
+
+character device (S_IFCHR)
+
+=item B<p>
+
+FIFO (S_IFFIFO)
+
+=item B<s>
+
+socket (S_IFSOCK)
+
+=back
+
+The remaining fields are as follows, with the corresponding field within
+B<struct stat>:
+
+=over 4
+
+=item B<d>
+
+ID of the device containing the file (B<st_dev>)
+
+=item B<i>
+
+File inode number (B<st_ino>)
+
+=item B<p>
+
+File mode and permissions, in octal form (B<st_mode>)
+
+=item B<u>
+
+User ID of the file's owner (B<st_uid>)
+
+=item B<g>
+
+Group ID (B<st_gid>)
+
+=item B<m>
+
+Time of last modification as the number of seconds since the Unix epoch (B<st_mtime>)
+
+=item B<c>
+
+Time of last status change as the number of seconds since the Unix epoch (B<st_mtime>)
+
+=item B<*>
+
+Size (in bytes) of the file's content (B<st_size>)
+
+=item B<r>
+
+(Required for files of type B<b> (block device) or B<c> (character device)
+only.) The file's device ID (B<st_rdev>) represented as a single decimal integer,
+not parsed into major and minor numbers.
+
+=back
+
+Each line ends with the path to the file, preceded by a single space.  All
+paths must begin with a slash (/) or period (.).
+
+=back
+
+=head2 Locator lines
+
+=item B<^>
+
+A line beginning with C<^> locates a file's contents within the backup data
+stream; see below.  If present, such a line must immediately follow the file's
+stat line, which must itself begin with C<+>.  (Deleted files are not present
+in the backup and so may not have a locator line.)  The contents of a symbolic
+link are the string designating the file that the link references.
+
+File contents are notionally divided into segments 64MiB in length (67,108,864
+bytes).  A file's location consists of the segment number and offset (within
+the segment) of the first byte of the file's contents.  (The first segment is
+segment 0.)  This is encoded as a pair of fields, like so:
+
+B<^>I<SEGMENT> B<@>I<OFFSET>
+
+The file length in bytes (B<st_size>) is also repeated in this line:
+
+B<^>I<SEGMENT> B<@>I<OFFSET> B<*>I<SIZE>
+
+For regular files, a BLAKE2b hash of the file's contents may also be present;
+it is in hexadecimal form prefixed by B<#>.  These lines should not be present
+unless the backup data is generated by eubar(1), as they are not otherwise
+meaningful.
+
+=back
+
+=head1 EXAMPLES
+
+Metadata for a directory:
+
+    +d d2050 i4325377 r0 p40755 u0 g0 m1448997015 c1448997015 /etc
+
+Metadata for a regular file:
+
+    +f d2050 i4334757 r0 p100644 u0 g0 m1440602787 c1440602787 *6111 /etc/hosts
+
+Metadata for a block special device:
+
+    +c d5 i1048 r261 p20666 u0 g0 m1447781045 c1447781045 /dev/zero
+
+Complete metadata stream for a backup of a single file:
+
+    #eubar meta 1.0
+    $begin 1449318298
+    +f d2050 i4335435 r0 p100644 u0 g0 m1447781044 c1447781044 *12 /etc/motd
+    ^0 @0 *12 /etc/motd
+    $end 1449318298
+    $size 28
+
+Complete data stream for the same backup:
+
+    Hello world
+
+=head1 SEE ALSO
+
+L<eubar(1)>
+L<lstat(2)>
+
