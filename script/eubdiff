@@ -24,12 +24,11 @@ while (defined(my $path = <STDIN>)) {
         # File has been deleted or moved
         print '-', $arf->type, ' ', $arf->path, "\n";
     }
+    elsif ((my $fsmeta = stat2file($path, @stat)->meta) ne $arf->meta) {
+        print '+', $fsmeta, "\n";
+    }
     else {
-        # File may have been changed
-        my $fsf = stat2file($path, @stat);
-        if ((my $fsmeta = $fsf->meta) ne $arf->meta) {
-            print '+', $fsmeta, "\n";
-        }
+        print '=', typechar($stat[2]), ' ', $path, "\n";
     }
 }
 
@@ -38,16 +37,21 @@ foreach (sort keys %$h) {
     print '-', $arf->type, ' ', $arf->path, "\n";
 }
 
+sub typechar {
+    my ($mode) = @_;
+    return S_ISREG($mode)  ? 'f' :
+           S_ISDIR($mode)  ? 'd' :
+           S_ISLNK($mode)  ? 'l' :
+           S_ISBLK($mode)  ? 'b' :
+           S_ISCHR($mode)  ? 'c' :
+           S_ISFIFO($mode) ? 'p' :
+           S_ISSOCK($mode) ? 's' : '?';
+}
+
 sub stat2file {
     my $path = shift;
     my $mode = $_[2];
-    my $type = S_ISREG($mode)  ? 'f' :
-               S_ISDIR($mode)  ? 'd' :
-               S_ISLNK($mode)  ? 'l' :
-               S_ISBLK($mode)  ? 'b' :
-               S_ISCHR($mode)  ? 'c' :
-               S_ISFIFO($mode) ? 'p' :
-               S_ISSOCK($mode) ? 's' : '?';
+    my $type = typechar($mode);
     my %f = (
         'a' => '+',
         't' => $type,
