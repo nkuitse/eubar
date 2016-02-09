@@ -67,6 +67,16 @@ eub_read_path(struct eub *eub, struct eubfile *file) {
     return(len);
 }
 
+char *
+eub_path_in_meta(const char *meta) {
+    char *path1, *path2;
+    path1 = strchr(meta, '/');
+    path2 = strchr(meta, '.');
+    if (!path1)
+        return(path2);
+    return path1 < path2 ? path1 : path2;
+}
+
 int
 eub_read_meta(struct eub *eub, struct eubfile *file) {
     size_t len;
@@ -83,7 +93,7 @@ eub_read_meta(struct eub *eub, struct eubfile *file) {
         file->metalen = len;
         file->action = eub->metabuf[0];
         file->typechar = eub->metabuf[1];
-        file->path = strchr(eub->metabuf, '/');
+        file->path = eub_path_in_meta(eub->metabuf);
         /* XXX Parse metadata here? */
         return(len);
     }
@@ -296,7 +306,7 @@ eub_write_data(struct eub *eub, struct eubfile *file) {
                 exit(eub_err(eub, errno, "Can't write file %s", path));
         }
         (void) fclose(fp);
-        mp += sprintf(mp, "@%lld *%lld", pos, size);
+        mp += sprintf(mp, "^%lld @%lld *%lld", pos >> SEG_SHIFT, pos & SEG_MASK, size);
         if (hashlen) {
             if (blake2b_final(&b2state, hash, hashlen) < 0)
                 exit(eub_err(eub, errno, "Can't finalize hash"));
@@ -310,7 +320,7 @@ eub_write_data(struct eub *eub, struct eubfile *file) {
         if ((size = readlink(path, linkbuf, LINK_BUF_LEN)) < 1)
             return(eub_err(eub, errno, "Can't read link: %s", path));
         file->size = size;
-        mp += sprintf(mp, "@%lld *%lld", pos, size);
+        mp += sprintf(mp, "^%lld @%lld *%lld", pos >> SEG_SHIFT, pos & SEG_MASK, size);
         if (!fwrite(linkbuf, size, 1, eub->odata))
             return(eub_err(eub, errno, "Can't write link: %s", path));
     }

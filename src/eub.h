@@ -1,6 +1,10 @@
 #define EUB_MAGIC_META "#eubar meta 1.0\n"
 #define EUB_MAGIC_LEN 16
 
+#define SEG_SHIFT (26)
+#define SEG_LEN (1<<SEG_SHIFT)
+#define SEG_MASK ((1<<SEG_SHIFT)-1)
+
 #define PATH_BUF_LEN (PATH_MAX+1)
 #define LINK_BUF_LEN (PATH_MAX+1)
 #define META_BUF_LEN (PATH_MAX*2+1)
