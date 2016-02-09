@@ -32,7 +32,7 @@ while (<$arfh>) {
 while (<STDIN>) {
     next if !m{^[+]([fdlbcps?] [^/.]+) ([./].+)$};
     my ($meta_now, $path) = ($1, $2);
-    $path =~ s{ $rxroot}{ $1} if $rxroot;
+    $path =~ s{^$rxroot}{$1} if $rxroot;
     my $meta = $path2meta{$path};
     print('+', $meta_now, ' ', $path, "\n"), next if !defined $meta;
     next if $meta eq '';
