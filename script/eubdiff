@@ -18,7 +18,7 @@ $rxroot = qr{\Q$opt{'r'}\E(/|$)} if defined $opt{'r'};
 # Read in prev archive meta
 open my $arfh, '<', $arf or die "Can't open $arf: $!";
 while (<$arfh>) {
-    $rxroot = qr{\Q$$1\E(/|$)} if /^\$strip (.+)/;
+    $rxroot = qr{\Q$1\E(/|$)} if /^\$strip (.+)/;
     next if !m{^([-+])([fdlbcps?] [^/.]+) ([./].+)$};
     my ($status, $meta, $path) = ($1, $2, $3);
     $path =~ s{^$rxroot}{$1} if $rxroot;
