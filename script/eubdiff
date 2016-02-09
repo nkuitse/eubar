@@ -3,39 +3,52 @@
 use strict;
 use warnings;
 
-use Archive::Eubar;
 use Fcntl qw(:mode);
+use Getopt::Std;
 
-usage() if !@ARGV;
-my $ar = Archive::Eubar->new(shift);
-my $h = $ar->metadata;
+my (%opt, %path2meta, $rxroot);
 
-while (defined(my $path = <STDIN>)) {
-    next if $path !~ s{[^/]*(?=/)}{};
-    chomp $path;
-    my $arf = delete $h->{$path};
-    my @stat = lstat $path;
-    if (!defined $arf) {
-        # It's a new file
-        next if !@stat;
-        print '+', stat2file($path, @stat)->meta, "\n";
+getopts('nr:', \%opt);
+usage() if @ARGV != 1;
+
+my ($arf) = @ARGV;
+$arf =~ s/(\.eum)?$/.eum/;
+$rxroot = qr{\Q$opt{'r'}\E(/|$)} if defined $opt{'r'};
+
+# Read in prev archive meta
+open my $arfh, '<', $arf or die "Can't open $arf: $!";
+while (<$arfh>) {
+    s{ $rxroot}{ $1} if $rxroot;
+    next if !m{^([-+])([fdlbcps?] [^/.]+) ([./].+)$};
+    if ($1 eq '+') {
+        $path2meta{$3} = $2;
     }
-    elsif (!@stat) {
-        # File has been deleted or moved
-        print '-', $arf->type, ' ', $arf->path, "\n";
-    }
-    elsif ((my $fsmeta = stat2file($path, @stat)->meta) ne $arf->meta) {
-        print '+', $fsmeta, "\n";
-    }
-    else {
-        print '=', typechar($stat[2]), ' ', $path, "\n";
+    elsif ($1 eq '-') {
+        delete $path2meta{$3};
     }
 }
 
-foreach (sort keys %$h) {
-    my $arf = $h->{$_};
-    print '-', $arf->type, ' ', $arf->path, "\n";
+# Read in output of eubar -m
+while (<STDIN>) {
+    next if !m{^[+]([fdlbcps?] [^/.]+) ([./].+)$};
+    my ($meta_now, $path) = ($1, $2);
+    my $meta = $path2meta{$path};
+    print('+', $meta_now, ' ', $path, "\n"), next if !defined $meta;
+    next if $meta eq '';
+    if ($opt{'n'}) {
+        $meta = norm_meta($meta);
+        $meta_now = norm_meta($meta_now);
+    }
+    $path2meta{$path} = '';
+    print('+', $meta_now, ' ', $path, "\n") if $meta_now ne $meta;
 }
+# Delete anything we didn't see in the list of files on stdin
+foreach my $path (sort keys %path2meta) {
+    my $meta = $path2meta{$path};
+    print '-', $meta, ' ', $path, "\n" if $meta ne '';
+}
+
+# --- Functions
 
 sub typechar {
     my ($mode) = @_;
@@ -48,25 +61,19 @@ sub typechar {
            S_ISSOCK($mode) ? 's' : '?';
 }
 
-sub stat2file {
-    my $path = shift;
-    my $mode = $_[2];
-    my $type = typechar($mode);
-    my %f = (
-        'a' => '+',
-        't' => $type,
-        '/' => $path,
-        'd' => $_[0],
-        'i' => $_[1],
-        'p' => $mode,
-        'u' => $_[4],
-        'g' => $_[5],
-        'r' => $_[6],
-        'm' => $_[9],
-        'c' => $_[10],
-    );
-    if ($type eq 'f' || $type eq 'l') {
-        $f{'*'} = $_[7];
-    }
-    $ar->file(%f);
+sub norm_meta {
+    local $_ = shift;
+    s/^([fdlbcps?]) // or die;
+    my $typechar = $1;
+    my %meta = map { substr($_,0,1) => substr($_,1) } split / /;
+    join(' ', $typechar, map { $_ . $meta{$_} } sort keys %meta);
 }
+
+sub stat2meta {
+    sprintf('%s c%d d%d g%d i%d m%d p%o r%d u%d', typechar($_[2]), @_[10,0,5,1,9,2,6,4]);
+}
+
+sub warning {
+    print STDERR "eubdiff: ", @_, "\n";
+}
+
