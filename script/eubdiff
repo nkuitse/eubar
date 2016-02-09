@@ -18,13 +18,15 @@ $rxroot = qr{\Q$opt{'r'}\E(/|$)} if defined $opt{'r'};
 # Read in prev archive meta
 open my $arfh, '<', $arf or die "Can't open $arf: $!";
 while (<$arfh>) {
-    s{ $rxroot}{ $1} if $rxroot;
+    $rxroot = qr{\Q$$1\E(/|$)} if /^\$strip (.+)/;
     next if !m{^([-+])([fdlbcps?] [^/.]+) ([./].+)$};
-    if ($1 eq '+') {
-        $path2meta{$3} = $2;
+    my ($status, $meta, $path) = ($1, $2, $3);
+    $path =~ s{^$rxroot}{$1} if $rxroot;
+    if ($status eq '+') {
+        $path2meta{$path} = $meta;
     }
-    elsif ($1 eq '-') {
-        delete $path2meta{$3};
+    elsif ($status eq '-') {
+        delete $path2meta{$path};
     }
 }
 
