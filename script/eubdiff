@@ -31,7 +31,9 @@ while (<$arfh>) {
 }
 
 # Read in output of eubar -m
+undef $rxroot if !$opt{'r'};
 while (<STDIN>) {
+    $rxroot = qr{\Q$1\E(/|$)} if /^\!strip (.+)/;
     next if !m{^[+]([fdlbcps?] [^/.]+) ([./].+)$};
     my ($meta_now, $path) = ($1, $2);
     $path =~ s{^$rxroot}{$1} if $rxroot;
