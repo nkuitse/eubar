@@ -6,22 +6,19 @@ use warnings;
 use Fcntl qw(:mode);
 use Getopt::Std;
 
-my (%opt, %path2meta, $rxroot);
+my (%opt, %path2meta);
 
-getopts('nr:', \%opt);
+getopts('n', \%opt);
 usage() if @ARGV != 1;
 
 my ($arf) = @ARGV;
 $arf =~ s/(\.eum)?$/.eum/;
-$rxroot = qr{\Q$opt{'r'}\E(/|$)} if defined $opt{'r'};
 
 # Read in prev archive meta
 open my $arfh, '<', $arf or die "Can't open $arf: $!";
 while (<$arfh>) {
-    $rxroot = qr{\Q$1\E(/|$)} if /^\$strip (.+)/;
     next if !m{^([-+])([fdlbcps?] [^/.]+) ([./].+)$};
     my ($status, $meta, $path) = ($1, $2, $3);
-    $path =~ s{^$rxroot}{$1} if $rxroot;
     if ($status eq '+') {
         $path2meta{$path} = $meta;
     }
@@ -31,12 +28,9 @@ while (<$arfh>) {
 }
 
 # Read in output of eubar -m
-undef $rxroot if !$opt{'r'};
 while (<STDIN>) {
-    $rxroot = qr{\Q$1\E(/|$)} if /^\!strip (.+)/;
     next if !m{^[+]([fdlbcps?] [^/.]+) ([./].+)$};
     my ($meta_now, $path) = ($1, $2);
-    $path =~ s{^$rxroot}{$1} if $rxroot;
     my $meta = $path2meta{$path};
     print('+', $meta_now, ' ', $path, "\n"), next if !defined $meta;
     next if $meta eq '';
