@@ -19,4 +19,22 @@ build/eubotar: src/eubotar.c src/eub.c src/eub.h
 	mkdir -p build
 	gcc -g -o $@ src/eubotar.c src/eub.c -lb2 -ltar
 
-.PHONY: all install
+dist: $(NAME)-$(VERSION).tar.gz
+
+$(NAME)-$(VERSION).tar.gz: $(NAME)-$(VERSION)
+	tar -czf $@ $<
+	rm -Rf $<
+
+manifest: MANIFEST
+
+MANIFEST: MANIFEST.SKIP
+	find * | egrep -v -f $< > $@
+
+$(NAME)-$(VERSION): MANIFEST
+	[ -d $@ ] || mkdir $@
+	cpio -p -m $@ < $<
+
+clean:
+	rm -Rf $(NAME)-$(VERSION)* MANIFEST
+
+.PHONY: all install dist clean manifest
