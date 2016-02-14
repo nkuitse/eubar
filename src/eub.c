@@ -74,6 +74,8 @@ eub_path_in_meta(const char *meta) {
     path2 = strchr(meta, '.');
     if (!path1)
         return(path2);
+    if (!path2)
+        return(path1);
     return path1 < path2 ? path1 : path2;
 }
 
@@ -183,7 +185,13 @@ eub_meta(struct eub *eub, struct eubfile *file) {
     mp = eub->metabuf;
     *mp++ = file->action;
     *mp++ = file->typechar;
-    mp += sprintf(mp, " d%ld i%ld r%ld p%o u%ld g%ld m%ld c%ld", dev, ino, rdev, perm, uid, gid, mtime, ctime);
+    mp += sprintf(mp, " c%ld", ctime);
+    if (eub->include & EUB_ST_DEV)
+        mp += sprintf(mp, " d%ld", dev);
+    mp += sprintf(mp, " g%ld", gid);
+    if (eub->include & EUB_ST_INO)
+        mp += sprintf(mp, " i%ld", ino);
+    mp += sprintf(mp, " m%ld p%o r%ld u%ld", mtime, perm, rdev, uid);
     *mp++ = 0;
     return(mp - eub->metabuf - 1);
 }
@@ -199,14 +207,14 @@ eub_meta_to_stat(struct eub *eub, struct eubfile *file) {
         return(eub_err(eub, -1, "Unparseable metadata: %s", eub->metabuf));
     if (!(typechar = *p++))
         return(eub_err(eub, -1, "Unparseable metadata: %s", eub->metabuf));
-    stat->st_dev   = eub_util_strkeyval(&p, 'd', 10);
-    stat->st_ino   = eub_util_strkeyval(&p, 'i', 10);
-    stat->st_rdev  = eub_util_strkeyval(&p, 'r', 10);
-    stat->st_mode  = eub_util_strkeyval(&p, 'p',  8);
-    stat->st_uid   = eub_util_strkeyval(&p, 'u', 10);
-    stat->st_gid   = eub_util_strkeyval(&p, 'g', 10);
-    stat->st_mtime = eub_util_strkeyval(&p, 'm', 10);
     stat->st_ctime = eub_util_strkeyval(&p, 'c', 10);
+    stat->st_dev   = eub_util_strkeyval(&p, 'd', 10);
+    stat->st_gid   = eub_util_strkeyval(&p, 'g', 10);
+    stat->st_ino   = eub_util_strkeyval(&p, 'i', 10);
+    stat->st_mtime = eub_util_strkeyval(&p, 'm', 10);
+    stat->st_mode  = eub_util_strkeyval(&p, 'p',  8);
+    stat->st_rdev  = eub_util_strkeyval(&p, 'r', 10);
+    stat->st_uid   = eub_util_strkeyval(&p, 'u', 10);
     if (S_ISREG(stat->st_mode) || S_ISLNK(stat->st_mode))
         stat->st_size = eub_util_strkeyval(&p, '*', 10);
     return(0);
@@ -383,19 +391,10 @@ eub_util_mode2typechar(mode_t mode) {
 
 unsigned long long
 eub_util_strkeyval(char **pp, char key, int base) {
-    char *p = *pp, c;
+    char *p = *pp;
     unsigned long long val = 0;
-    if (!*pp)
-        return(0);
-    if ((c = *p++) == ' ') {
-        if ((c = *p++) == key)
-            val = strtoull(p, pp, base);
-        else
-            *pp = NULL;
-    }
-    else {
-        *pp = NULL;
-    }
+    if (p && p[0] == ' ' && p[1] == key)
+        val = strtoull(p+2, pp, base);
     return(val);
 }
 

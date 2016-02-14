@@ -1,6 +1,9 @@
 #define EUB_MAGIC_META "#eubar meta 1.0\n"
 #define EUB_MAGIC_LEN 16
 
+#define EUB_ST_DEV 1
+#define EUB_ST_INO 2
+
 #define SEG_SHIFT (26)
 #define SEG_LEN (1<<SEG_SHIFT)
 #define SEG_MASK ((1<<SEG_SHIFT)-1)
@@ -29,6 +32,7 @@ struct eub {
     char *errpfx;
     int err;
     unsigned long long curpos;
+    int include;
 
     size_t hashlen;
     char b2sum[64];

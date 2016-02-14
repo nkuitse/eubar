@@ -14,7 +14,7 @@ char *argv0;
 
 void
 usage(void) {
-    fputs("usage: eubar [-sm] [-o BASE] [-k ID] [-t SEC] [-h HASHLEN] [CMD [ARG...]]\n", stderr);
+    fputs("usage: eubar [-smdi] [-o BASE] [-k ID] [-t SEC] [-h HASHLEN] [CMD [ARG...]]\n", stderr);
     exit(1);
 }
 
@@ -61,6 +61,9 @@ main(int argc, char **argv) {
                    break;
         case 'm' : eub.odata = 0;
                    eub.ometa = stdout;
+                   break;
+        case 'i' : eub.include |= EUB_ST_INO;
+        case 'd' : eub.include |= EUB_ST_DEV;
                    break;
         case 'o' : archive = EARGF(usage());
                    break;

@@ -8,7 +8,7 @@ use Getopt::Std;
 
 my (%opt, %path2meta);
 
-getopts('n', \%opt);
+getopts('ndi', \%opt);
 usage() if @ARGV != 1;
 
 my ($arf) = @ARGV;
@@ -69,7 +69,12 @@ sub norm_meta {
 }
 
 sub stat2meta {
-    sprintf('%s c%d d%d g%d i%d m%d p%o r%d u%d', typechar($_[2]), @_[10,0,5,1,9,2,6,4]);
+    my $meta = sprintf('%s c%ld', typechar($_[2]), $_[10]);
+    $meta .= sprintf(' d%ld', $_[0]) if $opt{'d'};
+    $meta .= sprintf(' g%ld', $_[5]);
+    $meta .= sprintf(' i%ld', $_[1]) if $opt{'i'};
+    $meta .= sprintf(' m%ld p%o r%ld u%ld', @_[9,2,6,4]);
+    return $meta;
 }
 
 sub warning {
