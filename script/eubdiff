@@ -17,7 +17,8 @@ $arf =~ s/(\.eum)?$/.eum/;
 # Read in prev archive meta
 open my $arfh, '<', $arf or die "Can't open $arf: $!";
 while (<$arfh>) {
-    next if !m{^([-+])([fdlbcps?] [^/.]+) ([./].+)$};
+    next if !m{^([-+])([fdlbcps?](?: [^\s/.:][0-9]+)+) (.+)$};
+    ### next if !m{^([-+])([fdlbcps?] [^/.]+) ([./].+)$};
     my ($status, $meta, $path) = ($1, $2, $3);
     if ($status eq '+') {
         $path2meta{$path} = $meta;
@@ -29,7 +30,8 @@ while (<$arfh>) {
 
 # Read in output of eubar -m
 while (<STDIN>) {
-    next if !m{^[+]([fdlbcps?] [^/.]+) ([./].+)$};
+    next if !m{^[+]([fdlbcps?](?: [^\s/.:][0-9]+)+) (.+)$};
+    ### next if !m{^[+]([fdlbcps?] [^/.]+) ([./].+)$};
     my ($meta_now, $path) = ($1, $2);
     my $meta = $path2meta{$path};
     print('+', $meta_now, ' ', $path, "\n"), next if !defined $meta;
